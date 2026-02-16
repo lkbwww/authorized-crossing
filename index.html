@@ -2,11 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=./static-build/" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Authorized Crossing</title>
+    <script>
+      // Prefer JS redirect over meta refresh for better browser compatibility.
+      window.location.replace("./static-build/");
+    </script>
   </head>
   <body>
     <p>Redirecting to <a href="./static-build/">Authorized Crossing</a>...</p>
+    <noscript>
+      <p>JavaScript is disabled. Open <a href="./static-build/">./static-build/</a> directly.</p>
+    </noscript>
   </body>
 </html>
