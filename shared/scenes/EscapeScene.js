@@ -87,6 +87,16 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlToastCooldown = 0;
       this.nearMissToastCooldown = 0;
       this.nearMissCount = 0;
+      this.rewardLineDurationBonus = 0;
+      this.rewardLineTolerance = 8;
+      this.rewardLineBaseBonus = REWARD_LINE_BONUS;
+      this.rewardLineCooldownScale = 1;
+      this.laneControlPenaltyReduction = 0;
+      this.laneControlSpeedMitigation = 0;
+      this.laneControlPreviewLead = 1.8;
+      this.visualClock = 0;
+      this.grainJitterTick = 0;
+      this.fxDustParticles = null;
     }
 
     init() {
@@ -106,11 +116,11 @@ export function createEscapeScene(Phaser, shared) {
       this.townY = TOWN_GOAL_Y;
       this.escapeStartY = 560;
       this.rewardLineEvent = null;
-      this.rewardLineCooldown = randomInt(4, 7);
+      this.rewardLineCooldown = this.rollRewardLineCooldown(4, 7);
       this.rewardLineStreak = 0;
       this.rewardLineLastClaimAt = -99;
       this.laneControlEvent = null;
-      this.laneControlCooldown = randomInt(5, 8);
+      this.laneControlCooldown = this.rollLaneControlCooldown(5, 8);
       this.laneControlPreview = null;
       this.laneControlNextLane = null;
       this.laneControlPenaltyTick = 0;
@@ -118,6 +128,16 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlToastCooldown = 0;
       this.nearMissToastCooldown = 0;
       this.nearMissCount = 0;
+      this.rewardLineDurationBonus = 0;
+      this.rewardLineTolerance = 8;
+      this.rewardLineBaseBonus = REWARD_LINE_BONUS;
+      this.rewardLineCooldownScale = 1;
+      this.laneControlPenaltyReduction = 0;
+      this.laneControlSpeedMitigation = 0;
+      this.laneControlPreviewLead = 1.8;
+      this.visualClock = 0;
+      this.grainJitterTick = 0;
+      this.fxDustParticles = null;
     }
 
     create() {
@@ -127,7 +147,19 @@ export function createEscapeScene(Phaser, shared) {
       this.seasonKey = this.state.getSeason();
       this.template = this.state.getTemplate();
       this.season = SEASON_DEFINITIONS[this.seasonKey];
-      this.hasBoat = this.state.hasRealInventoryItem("boat");
+      this.hasRewardLineScope = this.state.hasRealInventoryItem("rewardLineScope");
+      this.hasRewardRelayDrone = this.state.hasRealInventoryItem("rewardRelayDrone");
+      this.hasLaneControlStabilizer = this.state.hasRealInventoryItem("laneControlStabilizer");
+      this.hasRiskWindowTracker = this.state.hasRealInventoryItem("riskWindowTracker");
+      this.rewardLineDurationBonus = this.hasRewardRelayDrone ? 0.9 : 0;
+      this.rewardLineTolerance = this.hasRewardLineScope ? 16 : 8;
+      this.rewardLineBaseBonus = this.hasRewardLineScope ? REWARD_LINE_BONUS + 1 : REWARD_LINE_BONUS;
+      this.rewardLineCooldownScale = this.hasRewardRelayDrone ? 0.88 : 1;
+      this.laneControlPenaltyReduction = this.hasLaneControlStabilizer ? 1 : 0;
+      this.laneControlSpeedMitigation = this.hasLaneControlStabilizer ? 0.08 : 0;
+      this.laneControlPreviewLead = this.hasRiskWindowTracker ? 2.6 : 1.8;
+      this.rewardLineCooldown = this.rollRewardLineCooldown(4, 7);
+      this.laneControlCooldown = this.rollLaneControlCooldown(5, 8);
 
       ensurePixelTextures(this);
       this.motionAudio = new MotionAudioController(this);
@@ -135,6 +167,8 @@ export function createEscapeScene(Phaser, shared) {
 
       this.createWorld();
       this.createPlayer();
+      this.createAtmosphereFx();
+      this.createPostProcessFx();
       this.createHud();
       this.setupInput(Phaser);
       this.createDebugOverlay();
@@ -156,6 +190,7 @@ export function createEscapeScene(Phaser, shared) {
         this.destroyLaneControlPreview();
         this.destroyLaneControlEvent();
         this.destroyFootprints();
+        this.destroyAtmosphereFx();
         if (this.motionAudio) {
           this.motionAudio.destroy();
           this.motionAudio = null;
@@ -173,10 +208,19 @@ export function createEscapeScene(Phaser, shared) {
       this.cameras.main.setBackgroundColor("#2B1B14");
 
       this.groundBg = this.add.tileSprite(640, WORLD_MID_Y, INTERNAL_WIDTH, WORLD_TOTAL_HEIGHT, "tile-bank").setDepth(-80);
-      this.road = this.add.rectangle(640, WORLD_MID_Y, ROAD_RIGHT - ROAD_LEFT, WORLD_TOTAL_HEIGHT, 0x383838, 1).setDepth(-79);
+      this.groundBgDetail = this.add.tileSprite(640, WORLD_MID_Y, INTERNAL_WIDTH, WORLD_TOTAL_HEIGHT, "tile-bank").setDepth(-79).setAlpha(0.3);
+      this.road = this.add.tileSprite(640, WORLD_MID_Y, ROAD_RIGHT - ROAD_LEFT, WORLD_TOTAL_HEIGHT, "tile-road-asphalt").setDepth(-78);
+      this.roadLineTexture = this.add.tileSprite(ROAD_CENTER, WORLD_MID_Y, 14, WORLD_TOTAL_HEIGHT, "tile-road-line").setDepth(-77).setAlpha(0.74);
       this.roadEdgeLeft = this.add.rectangle(ROAD_LEFT, WORLD_MID_Y, 6, WORLD_TOTAL_HEIGHT, 0xb08d57, 0.95).setDepth(-78);
       this.roadEdgeRight = this.add.rectangle(ROAD_RIGHT, WORLD_MID_Y, 6, WORLD_TOTAL_HEIGHT, 0xb08d57, 0.95).setDepth(-78);
-      this.centerDivider = this.add.rectangle(ROAD_CENTER, WORLD_MID_Y, 6, WORLD_TOTAL_HEIGHT, 0xd0af5f, 0.84).setDepth(-78);
+      this.centerDivider = this.add.rectangle(ROAD_CENTER, WORLD_MID_Y, 6, WORLD_TOTAL_HEIGHT, 0xd0af5f, 0.38).setDepth(-76);
+
+      this.farBackdrop = this.add
+        .tileSprite(640, WORLD_MID_Y, INTERNAL_WIDTH, WORLD_TOTAL_HEIGHT, "px-mist")
+        .setDepth(-81)
+        .setScrollFactor(0.24)
+        .setAlpha(0.08)
+        .setBlendMode(Phaser.BlendModes.SCREEN);
 
       for (let y = WORLD_TOP + 120; y <= INTERNAL_HEIGHT + 120; y += 180) {
         this.add.rectangle(ROAD_CENTER, y, 12, 74, 0xf3e9d7, 0.8).setDepth(-77);
@@ -222,10 +266,68 @@ export function createEscapeScene(Phaser, shared) {
       this.player.body.setAllowGravity(false);
       this.player.body.setSize(12, 18);
       this.player.body.setOffset(6, 4);
+      this.playerShadow = this.add.ellipse(640, 614, 60, 18, 0x000000, 0.32).setDepth(2090);
 
       this.cameras.main.stopFollow();
       this.cameras.main.scrollY = clamp(this.player.y - this.playerAnchorY, WORLD_TOP, 0);
       this.player.y = this.cameras.main.scrollY + this.playerAnchorY;
+    }
+
+    createAtmosphereFx() {
+      const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS || this.sys.game.device.input.touch;
+      this.fxQuality = isMobile ? "mobile" : "desktop";
+
+      this.fogOverlay = this.add
+        .tileSprite(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT, "px-mist")
+        .setScrollFactor(0)
+        .setDepth(3180)
+        .setAlpha(this.fxQuality === "mobile" ? 0.04 : 0.08)
+        .setBlendMode(Phaser.BlendModes.SCREEN);
+      this.fxDustParticles = this.add.particles(0, 0, "px-mist", {
+        quantity: this.fxQuality === "mobile" ? 1 : 2,
+        frequency: 300,
+        x: { min: 48, max: INTERNAL_WIDTH - 48 },
+        y: -16,
+        lifespan: { min: 2200, max: 3600 },
+        speedY: { min: 18, max: 40 },
+        speedX: { min: -9, max: 9 },
+        scale: { start: 0.6, end: 1.5 },
+        alpha: { start: 0.08, end: 0 },
+        blendMode: Phaser.BlendModes.SCREEN,
+      });
+      this.fxDustParticles.setDepth(3175).setScrollFactor(0);
+    }
+
+    createPostProcessFx() {
+      this.gradeOverlay = this.add.rectangle(
+        INTERNAL_WIDTH / 2,
+        INTERNAL_HEIGHT / 2,
+        INTERNAL_WIDTH,
+        INTERNAL_HEIGHT,
+        0x2b241f,
+        0.13
+      ).setScrollFactor(0).setDepth(6400);
+      this.playerBloom = this.add
+        .ellipse(this.player.x, this.player.y - 5, 124, 72, 0xfff0d8, 0.07)
+        .setDepth(2098)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.grainOverlay = this.add
+        .tileSprite(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT, "fx-film-grain")
+        .setScrollFactor(0)
+        .setDepth(6500)
+        .setAlpha(this.fxQuality === "mobile" ? 0.04 : 0.07)
+        .setBlendMode(Phaser.BlendModes.OVERLAY);
+
+      this.vignetteTop = this.add.rectangle(INTERNAL_WIDTH / 2, 34, INTERNAL_WIDTH, 68, 0x000000, 0.2).setScrollFactor(0).setDepth(6450);
+      this.vignetteBottom = this.add
+        .rectangle(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT - 34, INTERNAL_WIDTH, 68, 0x000000, 0.2)
+        .setScrollFactor(0)
+        .setDepth(6450);
+      this.vignetteLeft = this.add.rectangle(26, INTERNAL_HEIGHT / 2, 52, INTERNAL_HEIGHT, 0x000000, 0.2).setScrollFactor(0).setDepth(6450);
+      this.vignetteRight = this.add
+        .rectangle(INTERNAL_WIDTH - 26, INTERNAL_HEIGHT / 2, 52, INTERNAL_HEIGHT, 0x000000, 0.2)
+        .setScrollFactor(0)
+        .setDepth(6450);
     }
 
     createHud() {
@@ -346,7 +448,10 @@ export function createEscapeScene(Phaser, shared) {
 
       const car = {
         shadow: this.add.ellipse(x, y + 18, 84, 22, 0x000000, 0.26).setDepth(1590),
+        glow: this.add.ellipse(x, y, 108, 42, 0xffe4bc, 0.05).setDepth(1592).setBlendMode(Phaser.BlendModes.ADD),
         sprite: this.add.image(x, y, "px-car").setDepth(1600).setScale(2.45),
+        headlightA: this.add.ellipse(x, y, 12, 20, 0xfff0cf, 0.1).setDepth(1602).setBlendMode(Phaser.BlendModes.ADD),
+        headlightB: this.add.ellipse(x, y, 12, 20, 0xfff0cf, 0.1).setDepth(1602).setBlendMode(Phaser.BlendModes.ADD),
         label: this.add
           .text(x, y - 38, "TRAFFIC", {
             fontFamily: "'Arial Black', Impact, sans-serif",
@@ -411,6 +516,8 @@ export function createEscapeScene(Phaser, shared) {
       this.updateFootprints(dt);
       this.spawnCars(dt);
       this.updateCars(dt);
+      this.updateAtmosphereFx(dt);
+      this.updatePostProcessFx(dt);
       this.updateTrafficAudio();
 
       if (this.isHitByCar()) {
@@ -434,12 +541,6 @@ export function createEscapeScene(Phaser, shared) {
 
     computeForwardSpeed() {
       let mult = this.season.speedMult;
-      if (this.hasBoat) {
-        mult += 0.35;
-        if (this.seasonKey === "SUMMER") {
-          mult += 0.1;
-        }
-      }
       if (this.state.isInjured()) {
         mult *= INJURY_MULT;
       }
@@ -451,11 +552,15 @@ export function createEscapeScene(Phaser, shared) {
       const moveForward = this.keyUp.isDown;
       const targetX = input * LATERAL_SPEED;
       const isControlViolatedNow = this.isPlayerViolatingLaneControl();
-      const effectiveForwardSpeed = applyLaneControlSpeed(this.forwardSpeed, isControlViolatedNow);
+      const effectiveForwardSpeed = applyLaneControlSpeed(
+        this.forwardSpeed,
+        isControlViolatedNow,
+        this.laneControlSpeedMitigation
+      );
       let forwardDelta = moveForward ? effectiveForwardSpeed * dt : 0;
 
       if (this.seasonKey === "WINTER") {
-        const response = this.hasBoat ? 0.04 : 0.02;
+        const response = this.hasLaneControlStabilizer ? 0.03 : 0.02;
         this.winterMomentumX = Phaser.Math.Linear(this.winterMomentumX, targetX, response);
         this.player.body.velocity.x = this.winterMomentumX;
         const targetForward = moveForward ? effectiveForwardSpeed : 0;
@@ -494,6 +599,50 @@ export function createEscapeScene(Phaser, shared) {
       const bob = moving ? Math.sin(this.motionFrameClock * 0.9) * 1.35 : 0;
       this.player.y = baseY + bob;
       this.player.setAngle(moving ? Math.sin(this.motionFrameClock * 0.6) * 0.8 : 0);
+    }
+
+    updateAtmosphereFx(dt) {
+      this.visualClock += dt;
+      if (this.groundBg) {
+        this.groundBg.tilePositionY += dt * 18;
+      }
+      if (this.groundBgDetail) {
+        this.groundBgDetail.tilePositionY += dt * 30;
+      }
+      if (this.road) {
+        this.road.tilePositionY += dt * 44;
+      }
+      if (this.roadLineTexture) {
+        this.roadLineTexture.tilePositionY += dt * 54;
+      }
+      if (this.farBackdrop) {
+        this.farBackdrop.tilePositionX += dt * 10;
+      }
+      if (this.fogOverlay) {
+        this.fogOverlay.tilePositionX -= dt * 13;
+      }
+    }
+
+    updatePostProcessFx(dt) {
+      const speedRatio = clamp(this.forwardSpeed / 330, 0, 1);
+      this.playerShadow.x = this.player.x;
+      this.playerShadow.y = this.player.y + 18;
+      this.playerShadow.setAlpha(0.24 + speedRatio * 0.14);
+      this.playerShadow.width = 52 + speedRatio * 10;
+
+      this.playerBloom.x = this.player.x;
+      this.playerBloom.y = this.player.y - 5;
+      this.playerBloom.setAlpha(0.06 + speedRatio * 0.03 + Math.sin(this.visualClock * 2.1) * 0.01);
+
+      const gradeAlpha = 0.12 + speedRatio * 0.05;
+      this.gradeOverlay.setFillStyle(0x2b241f, gradeAlpha);
+
+      this.grainJitterTick += dt;
+      if (this.grainJitterTick >= 0.08) {
+        this.grainJitterTick = 0;
+        this.grainOverlay.tilePositionX += randomInt(-2, 2);
+        this.grainOverlay.tilePositionY += randomInt(-2, 2);
+      }
     }
 
     updateFootprints(dt) {
@@ -593,6 +742,15 @@ export function createEscapeScene(Phaser, shared) {
       }
     }
 
+    rollRewardLineCooldown(min, max) {
+      const raw = randomInt(min, max);
+      return raw * this.rewardLineCooldownScale;
+    }
+
+    rollLaneControlCooldown(min, max) {
+      return randomInt(min, max);
+    }
+
     spawnRewardLineEvent() {
       if (this.rewardLineEvent || this.isEnding) {
         return;
@@ -616,7 +774,7 @@ export function createEscapeScene(Phaser, shared) {
       const lineW = LANE_HALF_WIDTH * 2 - 36;
       const projectedStreak =
         this.elapsed - this.rewardLineLastClaimAt <= 7 ? this.rewardLineStreak + 1 : 1;
-      const bonus = resolveRewardLineBonus(REWARD_LINE_BONUS, useRiskLane, projectedStreak - 1);
+      const bonus = resolveRewardLineBonus(this.rewardLineBaseBonus, useRiskLane, projectedStreak - 1);
 
       const line = this.add
         .rectangle(laneCenter, y, lineW, 14, 0x7a7b4f, 0.94)
@@ -643,7 +801,7 @@ export function createEscapeScene(Phaser, shared) {
         line,
         label,
         pulse: 0,
-        expiresAt: this.elapsed + 6.5,
+        expiresAt: this.elapsed + 6.5 + this.rewardLineDurationBonus,
       };
       this.hud.showToast(
         useRiskLane
@@ -747,7 +905,7 @@ export function createEscapeScene(Phaser, shared) {
       if (!this.laneControlEvent) {
         this.laneControlPenaltyTick = 0;
         this.laneControlCooldown -= dt;
-        if (!this.laneControlPreview && this.laneControlCooldown <= 1.8) {
+        if (!this.laneControlPreview && this.laneControlCooldown <= this.laneControlPreviewLead) {
           this.spawnLaneControlPreview();
         }
         if (this.laneControlCooldown <= 0) {
@@ -787,7 +945,10 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlPenaltyTick += dt;
       while (this.laneControlPenaltyTick >= 0.95) {
         this.laneControlPenaltyTick -= 0.95;
-        const penalty = getLaneControlPenalty(Math.floor(this.laneControlViolationLevel));
+        const penalty = getLaneControlPenalty(
+          Math.floor(this.laneControlViolationLevel),
+          this.laneControlPenaltyReduction
+        );
         const nextMoney = Math.max(0, this.state.getMoney() - penalty);
         this.state.setMoney(nextMoney);
         this.run.laneControlPenaltyPaid = (this.run.laneControlPenaltyPaid || 0) + penalty;
@@ -827,6 +988,7 @@ export function createEscapeScene(Phaser, shared) {
         laneMinX: event.laneMinX,
         laneMaxX: event.laneMaxX,
         isAdvancing: forwardDistance > 1.5,
+        laneTolerance: this.rewardLineTolerance,
       });
 
       if (claimed) {
@@ -846,7 +1008,7 @@ export function createEscapeScene(Phaser, shared) {
 
     clearRewardLineEvent(collected) {
       if (!this.rewardLineEvent) {
-        this.rewardLineCooldown = randomInt(8, 12);
+        this.rewardLineCooldown = this.rollRewardLineCooldown(8, 12);
         return;
       }
 
@@ -856,7 +1018,9 @@ export function createEscapeScene(Phaser, shared) {
       if (!collected && this.elapsed - this.rewardLineLastClaimAt > 7) {
         this.rewardLineStreak = 0;
       }
-      this.rewardLineCooldown = collected ? randomInt(7, 11) : randomInt(5, 9);
+      this.rewardLineCooldown = collected
+        ? this.rollRewardLineCooldown(7, 11)
+        : this.rollRewardLineCooldown(5, 9);
     }
 
     destroyRewardLineEvent() {
@@ -870,7 +1034,7 @@ export function createEscapeScene(Phaser, shared) {
 
     clearLaneControlEvent() {
       if (!this.laneControlEvent) {
-        this.laneControlCooldown = randomInt(7, 11);
+        this.laneControlCooldown = this.rollLaneControlCooldown(7, 11);
         return;
       }
 
@@ -881,7 +1045,7 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlEvent = null;
       this.laneControlPenaltyTick = 0;
       this.laneControlViolationLevel = 0;
-      this.laneControlCooldown = randomInt(5, 9);
+      this.laneControlCooldown = this.rollLaneControlCooldown(5, 9);
     }
 
     destroyLaneControlEvent() {
@@ -936,6 +1100,16 @@ export function createEscapeScene(Phaser, shared) {
         car.label.y = car.sprite.y - 40;
         car.shadow.x = car.sprite.x;
         car.shadow.y = car.sprite.y + 18;
+        car.glow.x = car.sprite.x;
+        car.glow.y = car.sprite.y;
+        car.glow.setAlpha(0.05 + Math.min(0.08, Math.abs(car.vy) / 2200));
+        car.headlightA.x = car.sprite.x + (car.laneDirection > 0 ? -9 : 9);
+        car.headlightA.y = car.sprite.y + (car.laneDirection > 0 ? 34 : -34);
+        car.headlightB.x = car.sprite.x + (car.laneDirection > 0 ? 9 : -9);
+        car.headlightB.y = car.sprite.y + (car.laneDirection > 0 ? 34 : -34);
+        const headlightAlpha = 0.08 + Math.min(0.12, Math.abs(car.vy) / 1600);
+        car.headlightA.setAlpha(headlightAlpha);
+        car.headlightB.setAlpha(headlightAlpha);
         this.maybeGrantNearMissBonus(car);
 
         const outOfBounds = car.laneDirection > 0 ? car.sprite.y > bottomCull : car.sprite.y < topCull;
@@ -1121,9 +1295,37 @@ export function createEscapeScene(Phaser, shared) {
       }
     }
 
+    destroyAtmosphereFx() {
+      const nodes = [
+        this.groundBgDetail,
+        this.playerShadow,
+        this.playerBloom,
+        this.farBackdrop,
+        this.fogOverlay,
+        this.gradeOverlay,
+        this.grainOverlay,
+        this.vignetteTop,
+        this.vignetteBottom,
+        this.vignetteLeft,
+        this.vignetteRight,
+      ];
+      nodes.forEach((node) => {
+        if (node && node.destroy) {
+          node.destroy();
+        }
+      });
+      if (this.fxDustParticles) {
+        this.fxDustParticles.destroy();
+        this.fxDustParticles = null;
+      }
+    }
+
     destroyCar(car) {
       car.shadow.destroy();
+      car.glow.destroy();
       car.sprite.destroy();
+      car.headlightA.destroy();
+      car.headlightB.destroy();
       car.label.destroy();
     }
 

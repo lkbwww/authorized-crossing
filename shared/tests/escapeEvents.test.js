@@ -39,6 +39,10 @@ test("shouldClaimRewardLine requires line crossing, lane match, and forward move
   assert.equal(shouldClaimRewardLine({ ...base, isAdvancing: true }), true);
   assert.equal(shouldClaimRewardLine({ ...base, isAdvancing: false }), false);
   assert.equal(shouldClaimRewardLine({ ...base, playerX: 520, isAdvancing: true }), false);
+  assert.equal(
+    shouldClaimRewardLine({ ...base, playerX: 468, laneTolerance: 16, isAdvancing: true }),
+    true
+  );
   assert.equal(shouldClaimRewardLine({ ...base, prevY: 570, currentY: 560, isAdvancing: true }), false);
 });
 
@@ -66,6 +70,7 @@ test("isLaneControlViolated requires both lane and zone overlap", () => {
 test("applyLaneControlSpeed slows speed only while violating lane control zone", () => {
   assert.equal(applyLaneControlSpeed(200, false), 200);
   assert.equal(applyLaneControlSpeed(200, true), 124);
+  assert.equal(applyLaneControlSpeed(200, true, 0.08), 140);
 });
 
 test("getLaneControlPenalty scales up to cap", () => {
@@ -73,6 +78,8 @@ test("getLaneControlPenalty scales up to cap", () => {
   assert.equal(getLaneControlPenalty(1), 3);
   assert.equal(getLaneControlPenalty(2), 4);
   assert.equal(getLaneControlPenalty(7), 4);
+  assert.equal(getLaneControlPenalty(2, 1), 3);
+  assert.equal(getLaneControlPenalty(0, 3), 1);
 });
 
 test("isNearMiss checks tight window around the player", () => {

@@ -14,7 +14,6 @@ import {
   EXPOSURE_DECAY_IN_WINDOW,
   EXPOSURE_DECAY_OUTSIDE_WINDOW,
   EXPOSURE_MAX,
-  FAST_CURRENT_BOAT_SPEED_MULT,
   FAST_CURRENT_DURATION,
   FAST_CURRENT_NOISE_BOOST,
   FAST_CURRENT_SPEED_MULT,
@@ -104,6 +103,10 @@ export function createRiverScene(Phaser, shared) {
       this.boostUseTime = 0;
       this.boostUseCount = 0;
       this.boostCooldownUntil = 0;
+      this.visualClock = 0;
+      this.grainJitterTick = 0;
+      this.fxFogParticles = null;
+      this.fxMistParticles = null;
     }
 
     init() {
@@ -117,8 +120,11 @@ export function createRiverScene(Phaser, shared) {
       this.seasonKey = this.state.getSeason();
       this.template = this.state.getTemplate();
       this.season = SEASON_DEFINITIONS[this.seasonKey];
-      this.hasBoat = this.state.hasRealInventoryItem("boat");
-      this.canSubmerge = this.seasonKey === "SUMMER" && !this.hasBoat;
+      this.hasBoostWhisperModule = this.state.hasRealInventoryItem("boostWhisperModule");
+      this.hasPowerCapacitorCoil = this.state.hasRealInventoryItem("powerCapacitorCoil");
+      this.hasExposureDampeningCoat = this.state.hasRealInventoryItem("exposureDampeningCoat");
+      this.hasRiskWindowTracker = this.state.hasRealInventoryItem("riskWindowTracker");
+      this.canSubmerge = this.seasonKey === "SUMMER";
       this.fastCurrentEnabled = this.seasonKey === "SUMMER";
       this.riskWindow = this.state.lockRiskWindow();
       this.breath = this.canSubmerge ? BREATH_MAX : BREATH_MAX;
@@ -128,6 +134,8 @@ export function createRiverScene(Phaser, shared) {
       this.motionAudio = new MotionAudioController(this);
       this.createWorld();
       this.createPlayer();
+      this.createAtmosphereFx();
+      this.createPostProcessFx();
       this.createHud();
       this.createDebugOverlay();
       this.setupInput(Phaser);
@@ -145,6 +153,7 @@ export function createRiverScene(Phaser, shared) {
         this.destroyEntities();
         this.destroyFastCurrentZones();
         this.destroyTrailMarks();
+        this.destroyAtmosphereFx();
         if (this.motionAudio) {
           this.motionAudio.destroy();
           this.motionAudio = null;
@@ -178,9 +187,10 @@ export function createRiverScene(Phaser, shared) {
 
       this.waterBg = this.add.tileSprite(640, waterCenterY, INTERNAL_WIDTH, waterHeight, waterKey).setDepth(-80);
       this.landBg = this.add.tileSprite(640, landCenterY, INTERNAL_WIDTH, landHeight, landKey).setDepth(-79);
+      this.landDetailBg = this.add.tileSprite(640, landCenterY, INTERNAL_WIDTH, landHeight, "tile-bank").setDepth(-78).setAlpha(0.28);
       this.shoreLine = this.add
         .tileSprite(640, this.riverToLandY + 40, INTERNAL_WIDTH, 96, shoreKey)
-        .setDepth(-78)
+        .setDepth(-77)
         .setAlpha(0.92);
 
       this.placeSeasonTrees();
@@ -242,10 +252,80 @@ export function createRiverScene(Phaser, shared) {
       this.player.body.setAllowGravity(false);
       this.player.body.setSize(12, 18);
       this.player.body.setOffset(6, 4);
+      this.playerShadow = this.add.ellipse(640, 614, 58, 18, 0x000000, 0.28).setDepth(2090);
       this.playerWake = this.add.ellipse(640, 600, 64, 20, 0xa8d9f6, 0).setDepth(2095);
       this.cameras.main.stopFollow();
       this.cameras.main.scrollY = clamp(this.player.y - this.playerAnchorY, WORLD_TOP, 0);
       this.player.y = this.cameras.main.scrollY + this.playerAnchorY;
+    }
+
+    createAtmosphereFx() {
+      const isMobile = this.sys.game.device.os.android || this.sys.game.device.os.iOS || this.sys.game.device.input.touch;
+      this.fxQuality = isMobile ? "mobile" : "desktop";
+
+      this.farHaze = this.add
+        .tileSprite(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT, "px-mist")
+        .setScrollFactor(0.22)
+        .setDepth(180)
+        .setAlpha(this.fxQuality === "mobile" ? 0.08 : 0.14)
+        .setBlendMode(Phaser.BlendModes.SCREEN);
+      this.nearFog = this.add
+        .tileSprite(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT, "px-mist")
+        .setScrollFactor(0)
+        .setDepth(3190)
+        .setAlpha(this.fxQuality === "mobile" ? 0.04 : 0.08)
+        .setBlendMode(Phaser.BlendModes.SCREEN);
+
+      const particleQty = this.fxQuality === "mobile" ? 1 : 2;
+      this.fxFogParticles = this.add.particles(0, 0, "px-mist", {
+        quantity: particleQty,
+        frequency: 260,
+        x: { min: 24, max: INTERNAL_WIDTH - 24 },
+        y: -20,
+        lifespan: { min: 2000, max: 3400 },
+        speedY: { min: 20, max: 45 },
+        speedX: { min: -8, max: 8 },
+        scale: { start: 0.7, end: 1.8 },
+        alpha: { start: 0.13, end: 0 },
+        blendMode: Phaser.BlendModes.SCREEN,
+      });
+      this.fxFogParticles.setDepth(3185).setScrollFactor(0);
+    }
+
+    createPostProcessFx() {
+      this.gradeOverlay = this.add.rectangle(
+        INTERNAL_WIDTH / 2,
+        INTERNAL_HEIGHT / 2,
+        INTERNAL_WIDTH,
+        INTERNAL_HEIGHT,
+        0x2a231c,
+        0.12
+      ).setScrollFactor(0).setDepth(6400);
+
+      this.playerBloom = this.add
+        .ellipse(this.player.x, this.player.y - 6, 120, 70, 0xf2e3ca, 0.08)
+        .setDepth(2098)
+        .setBlendMode(Phaser.BlendModes.ADD);
+
+      this.grainOverlay = this.add
+        .tileSprite(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT, "fx-film-grain")
+        .setScrollFactor(0)
+        .setDepth(6500)
+        .setAlpha(this.fxQuality === "mobile" ? 0.045 : 0.075)
+        .setBlendMode(Phaser.BlendModes.OVERLAY);
+
+      const vignetteColor = 0x000000;
+      const alpha = 0.22;
+      this.vignetteTop = this.add.rectangle(INTERNAL_WIDTH / 2, 34, INTERNAL_WIDTH, 68, vignetteColor, alpha).setScrollFactor(0).setDepth(6450);
+      this.vignetteBottom = this.add
+        .rectangle(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT - 34, INTERNAL_WIDTH, 68, vignetteColor, alpha)
+        .setScrollFactor(0)
+        .setDepth(6450);
+      this.vignetteLeft = this.add.rectangle(26, INTERNAL_HEIGHT / 2, 52, INTERNAL_HEIGHT, vignetteColor, alpha).setScrollFactor(0).setDepth(6450);
+      this.vignetteRight = this.add
+        .rectangle(INTERNAL_WIDTH - 26, INTERNAL_HEIGHT / 2, 52, INTERNAL_HEIGHT, vignetteColor, alpha)
+        .setScrollFactor(0)
+        .setDepth(6450);
     }
 
     createHud() {
@@ -460,6 +540,8 @@ export function createRiverScene(Phaser, shared) {
       this.enforceSummerLandPatrol();
       this.updateExposure(dt);
       this.updateFeedbackText();
+      this.updateAtmosphereFx(dt);
+      this.updatePostProcessFx(dt);
 
       this.riskDarken.setAlpha(this.isInRiskWindow() ? 0.1 : 0);
       this.updateHud();
@@ -477,10 +559,11 @@ export function createRiverScene(Phaser, shared) {
     handleRiskWindowToggles() {
       const inRisk = this.isInRiskWindow();
 
-      if (!this.riskWarningShown && this.state.hasItem("publicInfo") && this.elapsed >= this.riskWindow.start - 3 && this.elapsed < this.riskWindow.start) {
+      const warnLeadSeconds = this.hasRiskWindowTracker ? 5 : 3;
+      if (!this.riskWarningShown && this.hasRiskWindowTracker && this.elapsed >= this.riskWindow.start - warnLeadSeconds && this.elapsed < this.riskWindow.start) {
         this.riskWarningShown = true;
         this.riskWarnIcon.setVisible(true);
-        this.riskWarnIconUntil = this.elapsed + 1.6;
+        this.riskWarnIconUntil = this.elapsed + 2.1;
         this.hud.showToast("⚠ Inspection soon", UI_THEME.warn, 1500);
         playBeep(this, 640, 0.1, 0.05);
       }
@@ -600,6 +683,7 @@ export function createRiverScene(Phaser, shared) {
 
       const shadowWidth = type === "boat" ? 72 : 54;
       const shadow = this.add.ellipse(x, y + 16, shadowWidth, 14, 0x000000, 0.24).setDepth(1390);
+      const glow = this.add.ellipse(x, y + 4, type === "boat" ? 102 : 68, type === "boat" ? 42 : 30, 0xf3e9d7, 0.04).setDepth(1395).setBlendMode(Phaser.BlendModes.ADD);
       const sprite = this.add.image(x, y, textureKey).setDepth(1400).setScale(scaleByType[type] || 1.8);
       const zoneGraphic = this.add.graphics().setDepth(1300);
       const warningIcon = this.add.image(x, y - 44, "px-warning").setDepth(1600).setVisible(false).setScale(1.3);
@@ -620,6 +704,7 @@ export function createRiverScene(Phaser, shared) {
         x,
         y,
         shadow,
+        glow,
         sprite,
         zoneGraphic,
         warningIcon,
@@ -727,6 +812,9 @@ export function createRiverScene(Phaser, shared) {
         entity.label.y = entity.sprite.y - 38;
         entity.shadow.x = entity.sprite.x;
         entity.shadow.y = entity.sprite.y + 16;
+        entity.glow.x = entity.sprite.x;
+        entity.glow.y = entity.sprite.y + 4;
+        entity.glow.setAlpha(entity.active ? 0.08 : 0.035);
         entity.warningIcon.x = entity.sprite.x;
         entity.warningIcon.y = entity.sprite.y - 48;
 
@@ -943,17 +1031,6 @@ export function createRiverScene(Phaser, shared) {
       let noise = this.season.noise;
       let inertia = this.seasonKey === "WINTER" ? 0.02 : 1;
 
-      if (this.hasBoat) {
-        speedMult += 0.35;
-        if (this.seasonKey === "SUMMER") {
-          speedMult += 0.1;
-          noise = 0.9;
-        }
-        if (this.seasonKey === "WINTER") {
-          inertia *= 2;
-        }
-      }
-
       if (this.state.isInjured()) {
         speedMult *= INJURY_MULT;
       }
@@ -987,9 +1064,15 @@ export function createRiverScene(Phaser, shared) {
 
       if (this.boostActive) {
         forwardSpeed *= RIVER_BOOST_MULT;
-        noise += RIVER_BOOST_NOISE_BOOST;
+        const noiseBoost = this.hasBoostWhisperModule
+          ? RIVER_BOOST_NOISE_BOOST * 0.62
+          : RIVER_BOOST_NOISE_BOOST;
+        const boostDrainPerSec = this.hasPowerCapacitorCoil
+          ? RIVER_BOOST_DRAIN_PER_SEC * 0.88
+          : RIVER_BOOST_DRAIN_PER_SEC;
+        noise += noiseBoost;
         this.boostUseTime += dt;
-        this.boostCharge = clamp(this.boostCharge - RIVER_BOOST_DRAIN_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
+        this.boostCharge = clamp(this.boostCharge - boostDrainPerSec * dt, 0, RIVER_BOOST_MAX_CHARGE);
         if (this.boostCharge <= 0) {
           this.boostActive = false;
           this.boostCooldownUntil = this.elapsed + RIVER_BOOST_EXHAUST_COOLDOWN;
@@ -999,7 +1082,10 @@ export function createRiverScene(Phaser, shared) {
           }
         }
       } else {
-        this.boostCharge = clamp(this.boostCharge + RIVER_BOOST_RECOVER_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
+        const boostRecoverPerSec = this.hasPowerCapacitorCoil
+          ? RIVER_BOOST_RECOVER_PER_SEC * 1.12
+          : RIVER_BOOST_RECOVER_PER_SEC;
+        this.boostCharge = clamp(this.boostCharge + boostRecoverPerSec * dt, 0, RIVER_BOOST_MAX_CHARGE);
         if (
           this.boostExhaustedNotified &&
           !cooldownActive &&
@@ -1014,7 +1100,7 @@ export function createRiverScene(Phaser, shared) {
       this.run.boostUseCount = this.boostUseCount;
 
       if (this.inFastCurrent) {
-        forwardSpeed *= this.hasBoat ? FAST_CURRENT_BOAT_SPEED_MULT : FAST_CURRENT_SPEED_MULT;
+        forwardSpeed *= FAST_CURRENT_SPEED_MULT;
       }
 
       if (!this.canSubmerge) {
@@ -1147,6 +1233,51 @@ export function createRiverScene(Phaser, shared) {
       }
     }
 
+    updateAtmosphereFx(dt) {
+      this.visualClock += dt;
+      if (this.waterBg) {
+        this.waterBg.tilePositionY += dt * 22;
+      }
+      if (this.landBg) {
+        this.landBg.tilePositionY += dt * 14;
+      }
+      if (this.landDetailBg) {
+        this.landDetailBg.tilePositionY += dt * 24;
+      }
+      if (this.shoreLine) {
+        this.shoreLine.tilePositionX += dt * 13;
+      }
+      if (this.farHaze) {
+        this.farHaze.tilePositionX += dt * 8;
+      }
+      if (this.nearFog) {
+        this.nearFog.tilePositionX -= dt * 14;
+      }
+    }
+
+    updatePostProcessFx(dt) {
+      const riskTint = this.isInRiskWindow() ? 0x3a2a22 : 0x2a231c;
+      const riskAlpha = this.isInRiskWindow() ? 0.18 : 0.12;
+      this.gradeOverlay.setFillStyle(riskTint, riskAlpha);
+
+      this.playerShadow.x = this.player.x;
+      this.playerShadow.y = this.player.y + 17;
+      this.playerShadow.setAlpha(this.motionMode === "SUBMERGED" ? 0.06 : this.motionMode === "SWIMMING" ? 0.12 : 0.3);
+      this.playerShadow.width = this.motionMode === "SWIMMING" ? 44 : this.motionMode === "SUBMERGED" ? 34 : 56;
+
+      this.playerBloom.x = this.player.x;
+      this.playerBloom.y = this.player.y - 6;
+      const boostGlow = this.boostActive ? 0.15 : 0.08;
+      this.playerBloom.setAlpha(boostGlow + Math.sin(this.visualClock * 2.2) * 0.018);
+
+      this.grainJitterTick += dt;
+      if (this.grainJitterTick >= 0.08) {
+        this.grainJitterTick = 0;
+        this.grainOverlay.tilePositionX += randomInt(-2, 2);
+        this.grainOverlay.tilePositionY += randomInt(-2, 2);
+      }
+    }
+
     updateTrailEffects(dt) {
       const movingForward = this.isForwardHeld() || Math.abs(this.winterMomentumY) > 18;
       const movingLateral = Math.abs(this.player.body.velocity.x) > 22;
@@ -1265,9 +1396,11 @@ export function createRiverScene(Phaser, shared) {
 
       let delta = 0;
       if (inRisk) {
-        delta = -EXPOSURE_DECAY_IN_WINDOW * dt;
+        const riskRecoveryMult = this.hasExposureDampeningCoat ? 1.16 : 1;
+        delta = -EXPOSURE_DECAY_IN_WINDOW * riskRecoveryMult * dt;
       } else {
-        delta = -EXPOSURE_DECAY_OUTSIDE_WINDOW * dt;
+        const safeRecoveryMult = this.hasExposureDampeningCoat ? 1.1 : 1;
+        delta = -EXPOSURE_DECAY_OUTSIDE_WINDOW * safeRecoveryMult * dt;
       }
 
       this.lastExposureDelta = delta;
@@ -1330,8 +1463,8 @@ export function createRiverScene(Phaser, shared) {
     }
 
     isInsideEntityCone(entity, px, py) {
-      const bagInset = this.state.hasRealInventoryItem("waterproofBag") ? 22 : 0;
-      const detectionTriangle = this.buildConeTriangle(entity, entity.detectionTriangle, bagInset);
+      const coneInset = this.hasExposureDampeningCoat ? 12 : 0;
+      const detectionTriangle = this.buildConeTriangle(entity, entity.detectionTriangle, coneInset);
       return Phaser.Geom.Triangle.Contains(detectionTriangle, px, py);
     }
 
@@ -1344,11 +1477,12 @@ export function createRiverScene(Phaser, shared) {
         return false;
       }
 
-      this.detectionGraceUntil = this.time.now + 1500;
+      const graceMs = this.hasExposureDampeningCoat ? 1750 : 1500;
+      this.detectionGraceUntil = this.time.now + graceMs;
       this.showFeedback("DOC PASS", UI_THEME.success, 380);
       this.hud.showToast("Fake Papers consumed: keep moving", UI_THEME.success, 1100);
       this.player.setTint(0xd8d09f);
-      this.time.delayedCall(1500, () => {
+      this.time.delayedCall(graceMs, () => {
         if (this.player && this.player.active) {
           this.player.clearTint();
         }
@@ -1458,6 +1592,22 @@ export function createRiverScene(Phaser, shared) {
         duration: 760,
         ease: "Sine.Out",
         onComplete: () => {
+          if (
+            this.elapsed >= this.riskWindow.start - 1 ||
+            this.state.isInjured() ||
+            this.exposure >= 35 ||
+            Math.random() < 0.33
+          ) {
+            const inspection = this.state.resolveInspection();
+            if (inspection.cancelledByInsuranceLedger) {
+              this.hud.showToast("Inspection waived by ledger", UI_THEME.success, 1100);
+            } else if (inspection.cancelledByFakePapers) {
+              this.hud.showToast("Inspection bypassed by documents", UI_THEME.success, 1100);
+            } else if (inspection.fine > 0) {
+              this.hud.showToast(`Inspection fine -$${inspection.paid}`, UI_THEME.warn, 1000);
+            }
+          }
+
           if (this.state.getMoney() >= BUS_FARE) {
             this.hud.showToast(REQUIRED_STRINGS.busPass, UI_THEME.success, 1200);
             this.time.delayedCall(220, () => {
@@ -1518,7 +1668,7 @@ export function createRiverScene(Phaser, shared) {
         itemsOwned,
         riskWindow: this.riskWindow,
         totalDuration: RIVER_DURATION,
-        showRiskWindow: this.state.hasItem("publicInfo"),
+        showRiskWindow: this.hasRiskWindowTracker,
         isSubmerged: this.submerged,
       });
     }
@@ -1552,8 +1702,38 @@ export function createRiverScene(Phaser, shared) {
       }
     }
 
+    destroyAtmosphereFx() {
+      const nodes = [
+        this.landDetailBg,
+        this.playerShadow,
+        this.playerBloom,
+        this.farHaze,
+        this.nearFog,
+        this.gradeOverlay,
+        this.grainOverlay,
+        this.vignetteTop,
+        this.vignetteBottom,
+        this.vignetteLeft,
+        this.vignetteRight,
+      ];
+      nodes.forEach((node) => {
+        if (node && node.destroy) {
+          node.destroy();
+        }
+      });
+      if (this.fxFogParticles) {
+        this.fxFogParticles.destroy();
+        this.fxFogParticles = null;
+      }
+      if (this.fxMistParticles) {
+        this.fxMistParticles.destroy();
+        this.fxMistParticles = null;
+      }
+    }
+
     destroyEntity(entity) {
       entity.shadow.destroy();
+      entity.glow.destroy();
       entity.sprite.destroy();
       entity.label.destroy();
       entity.zoneGraphic.destroy();

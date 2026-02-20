@@ -6,7 +6,6 @@ import {
   BASE_FINE,
   BUS_FARE,
   CONFISCATION_ORDER,
-  COOP_RISK_SHIFT,
   DEFAULT_RISK_WINDOW,
   ENVELOPE_FLOOR,
   ITEM_BY_ID,
@@ -14,7 +13,6 @@ import {
   SEASONS,
   SPAWN_TEMPLATES,
   STARTING_MONEY,
-  WATERPROOF_FINE,
 } from "./constants.js";
 
 function pickRandomFrom(arr) {
@@ -60,6 +58,7 @@ export class GameState {
       nearMissCount: 0,
       rewardLineClaims: 0,
       laneControlPenaltyPaid: 0,
+      inspectionWaivedCount: 0,
     };
   }
 
@@ -124,12 +123,10 @@ export class GameState {
   // Computes the active risk window from base rules + purchased modifiers.
   getRiskWindow() {
     const durationBase = DEFAULT_RISK_WINDOW.end - DEFAULT_RISK_WINDOW.start;
-    const shiftedStart =
-      DEFAULT_RISK_WINDOW.start + (this.hasItem("cooperationFee") ? COOP_RISK_SHIFT : 0);
     const duration = Math.max(5, durationBase - this.run.riskShortenSeconds);
     return {
-      start: shiftedStart,
-      end: shiftedStart + duration,
+      start: DEFAULT_RISK_WINDOW.start,
+      end: DEFAULT_RISK_WINDOW.start + duration,
     };
   }
 
@@ -203,8 +200,26 @@ export class GameState {
     const run = this.run;
     run.inspectionCount += 1;
 
+    if (
+      this.hasItem("inspectionInsuranceLedger") &&
+      (run.inspectionWaivedCount || 0) <= 0
+    ) {
+      run.inspectionWaivedCount = 1;
+      const waived = {
+        cancelledByInsuranceLedger: true,
+        cancelledByFakePapers: false,
+        fine: 0,
+        paid: 0,
+        confiscated: [],
+        injuryApplied: false,
+      };
+      run.inspectionLog.push(waived);
+      return waived;
+    }
+
     if (this.useFakePapersCharge()) {
       const cancelled = {
+        cancelledByInsuranceLedger: false,
         cancelledByFakePapers: true,
         fine: 0,
         paid: 0,
@@ -215,7 +230,7 @@ export class GameState {
       return cancelled;
     }
 
-    const fine = this.hasItem("waterproofBag") ? WATERPROOF_FINE : BASE_FINE;
+    const fine = BASE_FINE;
     const confiscated = [];
     let injuryApplied = false;
     let paid = 0;
@@ -255,6 +270,7 @@ export class GameState {
     }
 
     const details = {
+      cancelledByInsuranceLedger: false,
       cancelledByFakePapers: false,
       fine,
       paid,
@@ -277,7 +293,7 @@ export class GameState {
       if (!this.run.inventory.has(itemId)) {
         continue;
       }
-      if (itemId === "waterproofBag" || itemId === "emergencyEnvelope") {
+      if (itemId === "emergencyEnvelope") {
         continue;
       }
 
@@ -322,6 +338,7 @@ export class GameState {
       nearMissCount: run.nearMissCount || 0,
       rewardLineClaims: run.rewardLineClaims || 0,
       laneControlPenaltyPaid: run.laneControlPenaltyPaid || 0,
+      inspectionWaivedCount: run.inspectionWaivedCount || 0,
     };
   }
 }

@@ -15,6 +15,21 @@ async function activeSceneKey(page) {
   });
 }
 
+async function riverBoostCharge(page) {
+  return page.evaluate(() => {
+    const game = window.__authorizedCrossingGame;
+    if (!game?.scene) {
+      return null;
+    }
+    const activeRiver = game.scene.getScenes(true).find((s) => s?.scene?.key === "RiverScene");
+    if (activeRiver && typeof activeRiver.boostCharge === "number") {
+      return activeRiver.boostCharge;
+    }
+    const keyed = game.scene.keys?.RiverScene;
+    return typeof keyed?.boostCharge === "number" ? keyed.boostCharge : null;
+  });
+}
+
 async function goToRiverScene(page) {
   await page.goto("/");
   await expect(page.locator("#game-root canvas")).toBeVisible();
@@ -52,11 +67,13 @@ test("game boots and reaches RiverScene from Intro", async ({ page }) => {
 test("river boost consumes and recovers charge", async ({ page }) => {
   await goToRiverScene(page);
 
-  const initialBoost = await page.evaluate(() => {
+  await page.waitForFunction(() => {
     const game = window.__authorizedCrossingGame;
-    const scene = game?.scene?.keys?.RiverScene;
-    return scene?.boostCharge ?? null;
+    const activeRiver = game?.scene?.getScenes?.(true)?.find((s) => s?.scene?.key === "RiverScene");
+    return typeof activeRiver?.boostCharge === "number";
   });
+
+  const initialBoost = await riverBoostCharge(page);
   expect(initialBoost).not.toBeNull();
 
   await page.keyboard.down("ArrowUp");
@@ -65,20 +82,12 @@ test("river boost consumes and recovers charge", async ({ page }) => {
   await page.keyboard.up("Shift");
   await page.keyboard.up("ArrowUp");
 
-  const drainedBoost = await page.evaluate(() => {
-    const game = window.__authorizedCrossingGame;
-    const scene = game?.scene?.keys?.RiverScene;
-    return scene?.boostCharge ?? null;
-  });
+  const drainedBoost = await riverBoostCharge(page);
   expect(drainedBoost).not.toBeNull();
   expect(drainedBoost).toBeLessThan(initialBoost);
 
   await page.waitForTimeout(1000);
-  const recoveredBoost = await page.evaluate(() => {
-    const game = window.__authorizedCrossingGame;
-    const scene = game?.scene?.keys?.RiverScene;
-    return scene?.boostCharge ?? null;
-  });
+  const recoveredBoost = await riverBoostCharge(page);
   expect(recoveredBoost).not.toBeNull();
   expect(recoveredBoost).toBeGreaterThan(drainedBoost);
 });

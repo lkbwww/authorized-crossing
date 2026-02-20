@@ -25,14 +25,14 @@ function baseSummary(overrides = {}) {
   };
 }
 
-test("prioritizes timeout as top failure reason and suggests boat first", () => {
+test("prioritizes timeout as top failure reason and suggests capacitor first", () => {
   const learning = buildFailureLearning(
     { endingId: "ARREST", subtitle: "Time ran out before town" },
     baseSummary()
   );
 
   assert.equal(learning.reasonId, "timeout");
-  assert.equal(learning.itemId, "boat");
+  assert.equal(learning.itemId, "powerCapacitorCoil");
 });
 
 test("inspection chain recommends next missing detection safety item", () => {
@@ -40,12 +40,12 @@ test("inspection chain recommends next missing detection safety item", () => {
     { endingId: "ARREST", subtitle: "You are arrested." },
     baseSummary({
       inspectionCount: 3,
-      itemsOwned: ["fakePapers"],
+      itemsOwned: ["riskWindowTracker"],
     })
   );
 
   assert.equal(learning.reasonId, "inspection_chain");
-  assert.equal(learning.itemId, "publicInfo");
+  assert.equal(learning.itemId, "inspectionInsuranceLedger");
 });
 
 test("low money without other signals falls back to economy shortfall", () => {
@@ -57,7 +57,7 @@ test("low money without other signals falls back to economy shortfall", () => {
   );
 
   assert.equal(learning.reasonId, "economy_shortfall");
-  assert.equal(learning.itemId, "publicInfo");
+  assert.equal(learning.itemId, "rewardRelayDrone");
 });
 
 test("heavy lane-control penalties are recognized as dominant failure pattern", () => {
@@ -71,5 +71,5 @@ test("heavy lane-control penalties are recognized as dominant failure pattern", 
   );
 
   assert.equal(learning.reasonId, "lane_control_tax");
-  assert.equal(learning.itemId, "publicInfo");
+  assert.equal(learning.itemId, "laneControlStabilizer");
 });

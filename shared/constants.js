@@ -29,7 +29,6 @@ export const RIVER_BOOST_EXHAUST_COOLDOWN = 2.2;
 export const STARTING_MONEY = 100;
 export const BUS_FARE = 60;
 export const BASE_FINE = 35;
-export const WATERPROOF_FINE = 20;
 export const ENVELOPE_FLOOR = 15;
 
 // Scene timer constants.
@@ -38,7 +37,6 @@ export const ESCAPE_STEALTH_DURATION = 45;
 
 // Risk-window configuration.
 export const DEFAULT_RISK_WINDOW = Object.freeze({ start: 25, end: 45 });
-export const COOP_RISK_SHIFT = 15;
 
 // Exposure and breath systems.
 export const EXPOSURE_MAX = 100;
@@ -63,59 +61,92 @@ export const WARMUP_DURATION = 0.8;
 // Buyable item manifest.
 export const ITEM_DEFINITIONS = Object.freeze([
   {
-    id: "cooperationFee",
+    id: "boostWhisperModule",
     slot: 1,
     key: "1",
-    cost: 20,
-    slotAbbrev: "BRIBE",
-    name: "Cooperation Fee (Not Legal)",
-    description: "High-alert surge shifts later: 25-45s -> 40-60s",
-    why: "Paid coordination delays heavy patrol scheduling for your route.",
-    bestFor: "Best if you keep getting caught early in the run.",
+    cost: 16,
+    slotAbbrev: "WHSP",
+    name: "Boost Whisper Module",
+    description: "Boost noise amplification is reduced.",
+    why: "Dampens thermal and acoustic signature while boosting.",
+    bestFor: "Best for frequent boost users in dense patrol phases.",
   },
   {
-    id: "boat",
+    id: "powerCapacitorCoil",
     slot: 2,
     key: "2",
-    cost: 35,
-    slotAbbrev: "BOAT",
-    name: "Boat (Seasonal)",
-    description: "Higher forward speed. Summer: no breath drain.",
-    why: "A motor route reduces time exposed in open channels.",
-    bestFor: "Best for fast crossing when you can afford less safety budget.",
+    cost: 18,
+    slotAbbrev: "CAP",
+    name: "Power Capacitor Coil",
+    description: "Boost charge drains slower and recovers faster.",
+    why: "Stabilizes burst-power draw for repeated acceleration.",
+    bestFor: "Best for tempo control across long river segments.",
   },
   {
-    id: "publicInfo",
+    id: "rewardLineScope",
     slot: 3,
     key: "3",
-    cost: 10,
-    slotAbbrev: "INFO",
-    name: "Public Info (Confidential)",
-    description: "Shows risk segment and gives 3s warning beep.",
-    why: "Leaked schedule data reveals when active surveillance spikes.",
-    bestFor: "Best low-cost safety pick for almost every run.",
+    cost: 14,
+    slotAbbrev: "SCOPE",
+    name: "Reward Line Scope",
+    description: "Reward-line capture window is slightly wider.",
+    why: "Improves alignment tolerance on lane reward passes.",
+    bestFor: "Best when you miss lines by a narrow margin.",
   },
   {
-    id: "fakePapers",
+    id: "rewardRelayDrone",
     slot: 4,
     key: "4",
-    cost: 25,
-    slotAbbrev: "DOC",
-    name: "Fake Papers (Looks Real)",
-    description: "First detection is cancelled + 1.5s grace.",
-    why: "Initial checkpoint mismatch gets waved through once.",
-    bestFor: "Best panic button if you expect one major mistake.",
+    cost: 17,
+    slotAbbrev: "DRONE",
+    name: "Reward Relay Drone",
+    description: "Reward lines persist longer and respawn a bit sooner.",
+    why: "Relay confirms lane tags and extends acquisition timing.",
+    bestFor: "Best for economy-focused escape routing.",
   },
   {
-    id: "waterproofBag",
+    id: "laneControlStabilizer",
     slot: 5,
     key: "5",
-    cost: 15,
-    slotAbbrev: "BAG",
-    name: "Waterproof Bag (Evidence Storage)",
-    description: "Detection hitbox gets narrower (easier cone dodging).",
-    why: "Compact profile and dry gear reduce visible signature.",
-    bestFor: "Best if you are close to cones but not perfectly precise.",
+    cost: 16,
+    slotAbbrev: "LANE",
+    name: "Lane Control Stabilizer",
+    description: "Lane-control penalties and slowdown are slightly reduced.",
+    why: "Stabilizes steering response inside control enforcement zones.",
+    bestFor: "Best if control events frequently tax your money and pace.",
+  },
+  {
+    id: "inspectionInsuranceLedger",
+    slot: 6,
+    key: "6",
+    cost: 22,
+    slotAbbrev: "LEDGR",
+    name: "Inspection Insurance Ledger",
+    description: "Automatically waives one inspection fine per run.",
+    why: "Filed exemption token nullifies one checkpoint charge.",
+    bestFor: "Best for preserving bus fare in volatile runs.",
+  },
+  {
+    id: "exposureDampeningCoat",
+    slot: 7,
+    key: "7",
+    cost: 19,
+    slotAbbrev: "COAT",
+    name: "Exposure Dampening Coat",
+    description: "Detection cones are slightly less punishing.",
+    why: "Suppresses heat profile and visual trace around patrol scans.",
+    bestFor: "Best when you are often clipped by cone edges.",
+  },
+  {
+    id: "riskWindowTracker",
+    slot: 8,
+    key: "8",
+    cost: 12,
+    slotAbbrev: "RISK",
+    name: "Risk Window Tracker",
+    description: "Shows risk segment and warns earlier before surge.",
+    why: "Predictive telemetry highlights high-alert window timing.",
+    bestFor: "Best low-cost planning tool across all seasons.",
   },
 ]);
 
@@ -127,18 +158,25 @@ export const ITEM_BY_ID = Object.freeze(
 );
 
 export const CONFISCATION_ORDER = Object.freeze([
-  "boat",
-  "cooperationFee",
-  "publicInfo",
-  "fakePapers",
+  "inspectionInsuranceLedger",
+  "powerCapacitorCoil",
+  "rewardRelayDrone",
+  "rewardLineScope",
+  "boostWhisperModule",
+  "laneControlStabilizer",
+  "riskWindowTracker",
+  "exposureDampeningCoat",
 ]);
 
 export const ITEM_SLOT_ABBREVIATIONS = Object.freeze([
-  "BRIBE",
-  "BOAT",
-  "INFO",
-  "DOC",
-  "BAG",
+  "WHSP",
+  "CAP",
+  "SCOPE",
+  "DRONE",
+  "LANE",
+  "LEDGR",
+  "COAT",
+  "RISK",
 ]);
 
 // Run randomization pools.
@@ -177,13 +215,13 @@ export const SEASON_DEFINITIONS = Object.freeze({
 // Shared HUD palette.
 export const UI_THEME = Object.freeze({
   bg: 0x2b1b14,
-  panel: 0x3a261c,
-  border: 0xb08d57,
-  textPrimary: "#F3E9D7",
-  textSecondary: "#D4C3A3",
-  warn: "#E0A84A",
-  danger: "#A34B3A",
-  success: "#7A7B4F",
+  panel: 0x2f241d,
+  border: 0x8f7a63,
+  textPrimary: "#E8DECE",
+  textSecondary: "#BBAE9A",
+  warn: "#C89652",
+  danger: "#965645",
+  success: "#6E7A58",
 });
 
 // Normalized ending labels used by the result scene.

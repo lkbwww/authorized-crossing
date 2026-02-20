@@ -170,7 +170,7 @@ export function createResultScene(Phaser, shared) {
       this.statusText.setText(
         [
           `SEASON: ${summary.season}   TEMPLATE: ${summary.template}   MONEY: $${summary.money}   INJURED: ${summary.injured ? "YES" : "NO"}`,
-          `INSPECTIONS: ${summary.inspectionCount}   PEAK EXPOSURE: ${summary.exposurePeak}   RIVER: ${summary.riverTimeSpent.toFixed(1)}s   ESCAPE: ${summary.escapeTimeSpent.toFixed(1)}s`,
+          `INSPECTIONS: ${summary.inspectionCount} (waived ${summary.inspectionWaivedCount || 0})   PEAK EXPOSURE: ${summary.exposurePeak}   RIVER: ${summary.riverTimeSpent.toFixed(1)}s   ESCAPE: ${summary.escapeTimeSpent.toFixed(1)}s`,
           `BOOST USED: ${summary.boostUseTime.toFixed(1)}s (${summary.boostUseCount} activations)`,
           `ESCAPE EVENTS: NEAR MISS ${summary.nearMissCount}   BONUS LINES ${summary.rewardLineClaims}   CONTROL TAX $${summary.laneControlPenaltyPaid}`,
           `ITEMS OWNED: ${ownedItems}`,

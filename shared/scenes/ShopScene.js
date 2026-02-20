@@ -2,7 +2,7 @@
  * Pre-run shop scene:
  * buy items, inspect season/risk window, and start the crossing.
  */
-import { GAME_TITLE, ITEM_DEFINITIONS, SHOP_TITLE, UI_THEME } from "../constants.js";
+import { GAME_TITLE, SHOP_TITLE, UI_THEME } from "../constants.js";
 import { createButton } from "../ui/common.js";
 import { formatWindow } from "../utils.js";
 
@@ -20,6 +20,7 @@ export function createShopScene(Phaser, shared) {
       this.state = shared.gameState;
       this.state.prepareNewRun();
       this.run = this.state.run;
+      this.shopItems = this.state.getShopItems();
 
       this.cameras.main.setBackgroundColor("#2B1B14");
       this.add.rectangle(640, 360, 1280, 720, 0x2b1b14, 1);
@@ -46,21 +47,21 @@ export function createShopScene(Phaser, shared) {
 
       this.moneyText = this.add.text(50, 152, "", {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "24px",
         color: UI_THEME.textPrimary,
       });
 
       this.seasonText = this.add.text(50, 184, "", {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "22px",
         color: "#C9D69F",
       });
 
       this.riskText = this.add.text(50, 214, "", {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "20px",
         color: "#E0A84A",
       });
@@ -75,7 +76,7 @@ export function createShopScene(Phaser, shared) {
         .setOrigin(0, 0);
 
       this.add
-        .text(318, 288, "UP / DOWN: Select   ENTER: Buy   SPACE: Start   SHIFT: Boost in river", {
+        .text(318, 288, "UP / DOWN: Select   1-8: Quick select   ENTER: Buy   SPACE: Start", {
           fontFamily: "'Arial Black', Impact, sans-serif",
           fontStyle: "bold",
           fontSize: "15px",
@@ -85,14 +86,14 @@ export function createShopScene(Phaser, shared) {
 
       this.createMerchantFigure();
 
-      ITEM_DEFINITIONS.forEach((item, idx) => {
-        const y = 330 + idx * 38;
+      this.shopItems.forEach((item, idx) => {
+        const y = 320 + idx * 30;
         const rowBg = this.add
-          .rectangle(500, y, 900, 34, 0x332117, 0.9)
+          .rectangle(500, y, 900, 26, 0x332117, 0.9)
           .setStrokeStyle(2, 0x6f5137, 1)
           .setInteractive({ useHandCursor: true });
 
-        const rowText = this.add.text(56, y - 10, "", {
+        const rowText = this.add.text(56, y - 9, "", {
           fontFamily: "'Arial Black', Impact, sans-serif",
           fontStyle: "bold",
           fontSize: "16px",
@@ -109,21 +110,21 @@ export function createShopScene(Phaser, shared) {
 
       this.slotsText = this.add.text(50, 610, "", {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "16px",
         color: UI_THEME.textSecondary,
       });
 
       this.itemHintTitle = this.add.text(50, 530, "Selected Item", {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "17px",
         color: UI_THEME.warn,
       });
 
       this.itemHintText = this.add.text(50, 550, "", {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "14px",
         color: UI_THEME.textPrimary,
         wordWrap: { width: 780 },
@@ -131,7 +132,7 @@ export function createShopScene(Phaser, shared) {
 
       this.messageText = this.add.text(50, 662, this.message, {
         fontFamily: "'Arial Black', Impact, sans-serif",
-          fontStyle: "bold",
+        fontStyle: "bold",
         fontSize: "16px",
         color: UI_THEME.textPrimary,
         wordWrap: { width: 780 },
@@ -154,21 +155,32 @@ export function createShopScene(Phaser, shared) {
       this.keyLeft = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
       this.keyRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
 
-      this.digitKeys = [
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE),
+      const digitCodes = [
+        "ONE",
+        "TWO",
+        "THREE",
+        "FOUR",
+        "FIVE",
+        "SIX",
+        "SEVEN",
+        "EIGHT",
       ];
-
-      this.numpadKeys = [
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_TWO),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR),
-        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FIVE),
+      const numpadCodes = [
+        "NUMPAD_ONE",
+        "NUMPAD_TWO",
+        "NUMPAD_THREE",
+        "NUMPAD_FOUR",
+        "NUMPAD_FIVE",
+        "NUMPAD_SIX",
+        "NUMPAD_SEVEN",
+        "NUMPAD_EIGHT",
       ];
+      this.digitKeys = digitCodes.map((name) =>
+        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes[name])
+      );
+      this.numpadKeys = numpadCodes.map((name) =>
+        this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes[name])
+      );
 
       this.input.keyboard.addCapture([
         Phaser.Input.Keyboard.KeyCodes.UP,
@@ -213,19 +225,19 @@ export function createShopScene(Phaser, shared) {
         Phaser.Input.Keyboard.JustDown(this.keyDown) || Phaser.Input.Keyboard.JustDown(this.keyRight);
 
       if (prev) {
-        this.selectedIndex = (this.selectedIndex - 1 + ITEM_DEFINITIONS.length) % ITEM_DEFINITIONS.length;
+        this.selectedIndex = (this.selectedIndex - 1 + this.shopItems.length) % this.shopItems.length;
         this.refreshUi();
       }
 
       if (next) {
-        this.selectedIndex = (this.selectedIndex + 1) % ITEM_DEFINITIONS.length;
+        this.selectedIndex = (this.selectedIndex + 1) % this.shopItems.length;
         this.refreshUi();
       }
 
       for (let i = 0; i < this.digitKeys.length; i += 1) {
         const direct = Phaser.Input.Keyboard.JustDown(this.digitKeys[i]);
         const pad = Phaser.Input.Keyboard.JustDown(this.numpadKeys[i]);
-        if (direct || pad) {
+        if ((direct || pad) && i < this.shopItems.length) {
           this.selectedIndex = i;
           this.refreshUi();
         }
@@ -241,7 +253,7 @@ export function createShopScene(Phaser, shared) {
     }
 
     tryPurchaseSelected() {
-      const item = ITEM_DEFINITIONS[this.selectedIndex];
+      const item = this.shopItems[this.selectedIndex];
       const result = this.state.buyItem(item.id);
       this.message = result.message;
       this.refreshUi();
@@ -266,15 +278,15 @@ export function createShopScene(Phaser, shared) {
         );
       });
 
-      const slotText = ITEM_DEFINITIONS.map((item) => {
+      const slotText = this.shopItems.map((item) => {
         return `${item.slotAbbrev}[${this.state.hasRealInventoryItem(item.id) ? "X" : "-"}]`;
       }).join("  ");
 
-      const selectedItem = ITEM_DEFINITIONS[this.selectedIndex];
+      const selectedItem = this.shopItems[this.selectedIndex];
       this.itemHintText.setText(
         `Effect: ${selectedItem.description}\nWhy: ${selectedItem.why || "Operational advantage"}\nBest for: ${selectedItem.bestFor || "General use"}`
       );
-      this.slotsText.setText(`SLOTS: ${slotText}  |  DOC uses: ${this.run.fakePapersCharges}`);
+      this.slotsText.setText(`SLOTS: ${slotText}`);
       this.messageText.setText(this.message);
     }
   };

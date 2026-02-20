@@ -26,6 +26,7 @@ export function shouldClaimRewardLine({
   laneMinX,
   laneMaxX,
   isAdvancing,
+  laneTolerance = 8,
 }) {
   if (!isAdvancing) {
     return false;
@@ -33,7 +34,7 @@ export function shouldClaimRewardLine({
   if (!didCrossLine(prevY, currentY, lineY)) {
     return false;
   }
-  return isInsideLane(playerX, laneMinX, laneMaxX, 8);
+  return isInsideLane(playerX, laneMinX, laneMaxX, laneTolerance);
 }
 
 export function resolveRewardLineBonus(baseBonus, isLaneControlRisk, streakCount = 0) {
@@ -56,14 +57,16 @@ export function isLaneControlViolated({
   );
 }
 
-export function applyLaneControlSpeed(baseForwardSpeed, isLaneControlViolatedNow) {
+export function applyLaneControlSpeed(baseForwardSpeed, isLaneControlViolatedNow, speedMitigation = 0) {
+  const adjustedMult = Math.min(1, Math.max(0.45, LANE_CONTROL_SPEED_MULT + speedMitigation));
   return isLaneControlViolatedNow
-    ? baseForwardSpeed * LANE_CONTROL_SPEED_MULT
+    ? baseForwardSpeed * adjustedMult
     : baseForwardSpeed;
 }
 
-export function getLaneControlPenalty(violationLevel) {
-  return LANE_CONTROL_BASE_PENALTY + Math.min(2, Math.max(0, violationLevel));
+export function getLaneControlPenalty(violationLevel, penaltyReduction = 0) {
+  const base = LANE_CONTROL_BASE_PENALTY + Math.min(2, Math.max(0, violationLevel));
+  return Math.max(1, base - Math.max(0, penaltyReduction));
 }
 
 export function isNearMiss({
