@@ -77,6 +77,8 @@ export function createEscapeScene(Phaser, shared) {
       this.rewardLineLastClaimAt = -99;
       this.laneControlEvent = null;
       this.laneControlCooldown = 0;
+      this.laneControlPreview = null;
+      this.laneControlNextLane = null;
       this.laneControlPenaltyTick = 0;
       this.laneControlToastCooldown = 0;
       this.nearMissToastCooldown = 0;
@@ -105,6 +107,8 @@ export function createEscapeScene(Phaser, shared) {
       this.rewardLineLastClaimAt = -99;
       this.laneControlEvent = null;
       this.laneControlCooldown = randomInt(5, 8);
+      this.laneControlPreview = null;
+      this.laneControlNextLane = null;
       this.laneControlPenaltyTick = 0;
       this.laneControlToastCooldown = 0;
       this.nearMissToastCooldown = 0;
@@ -144,6 +148,7 @@ export function createEscapeScene(Phaser, shared) {
         this.cars.forEach((car) => this.destroyCar(car));
         this.cars = [];
         this.destroyRewardLineEvent();
+        this.destroyLaneControlPreview();
         this.destroyLaneControlEvent();
         this.destroyFootprints();
         if (this.motionAudio) {
@@ -650,7 +655,8 @@ export function createEscapeScene(Phaser, shared) {
         return;
       }
 
-      const lane = Math.random() < 0.5 ? "left" : "right";
+      const lane = this.laneControlNextLane || (Math.random() < 0.5 ? "left" : "right");
+      this.laneControlNextLane = null;
       const laneCenter = lane === "left" ? LEFT_LANE_CENTER : RIGHT_LANE_CENTER;
       const laneMinX = laneCenter - LANE_HALF_WIDTH;
       const laneMaxX = laneCenter + LANE_HALF_WIDTH;
@@ -696,6 +702,27 @@ export function createEscapeScene(Phaser, shared) {
       this.hud.showToast(`${lane.toUpperCase()} lane control active`, UI_THEME.danger, 1100);
     }
 
+    spawnLaneControlPreview() {
+      if (this.laneControlPreview || this.isEnding || this.laneControlEvent) {
+        return;
+      }
+      const lane = Math.random() < 0.5 ? "left" : "right";
+      this.laneControlNextLane = lane;
+      this.laneControlPreview = this.add
+        .text(INTERNAL_WIDTH / 2, 112, `NEXT CONTROL: ${lane.toUpperCase()} LANE`, {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontStyle: "bold",
+          fontSize: "18px",
+          color: UI_THEME.warn,
+          stroke: "#000000",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(6800);
+      this.hud.showToast(`${lane.toUpperCase()} lane control incoming`, UI_THEME.warn, 900);
+    }
+
     isPlayerViolatingLaneControl() {
       if (!this.laneControlEvent) {
         return false;
@@ -716,7 +743,11 @@ export function createEscapeScene(Phaser, shared) {
       if (!this.laneControlEvent) {
         this.laneControlPenaltyTick = 0;
         this.laneControlCooldown -= dt;
+        if (!this.laneControlPreview && this.laneControlCooldown <= 1.8) {
+          this.spawnLaneControlPreview();
+        }
         if (this.laneControlCooldown <= 0) {
+          this.destroyLaneControlPreview();
           this.spawnLaneControlEvent();
         }
         return;
@@ -852,6 +883,14 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlEvent.markerBottom.destroy();
       this.laneControlEvent.label.destroy();
       this.laneControlEvent = null;
+    }
+
+    destroyLaneControlPreview() {
+      if (!this.laneControlPreview) {
+        return;
+      }
+      this.laneControlPreview.destroy();
+      this.laneControlPreview = null;
     }
 
     updateCars(dt) {
