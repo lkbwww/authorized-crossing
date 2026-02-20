@@ -57,6 +57,9 @@ export class GameState {
       escapeTimeSpent: 0,
       boostUseTime: 0,
       boostUseCount: 0,
+      nearMissCount: 0,
+      rewardLineClaims: 0,
+      laneControlPenaltyPaid: 0,
     };
   }
 
@@ -316,6 +319,9 @@ export class GameState {
       escapeTimeSpent: run.escapeTimeSpent,
       boostUseTime: run.boostUseTime,
       boostUseCount: run.boostUseCount,
+      nearMissCount: run.nearMissCount || 0,
+      rewardLineClaims: run.rewardLineClaims || 0,
+      laneControlPenaltyPaid: run.laneControlPenaltyPaid || 0,
     };
   }
 }

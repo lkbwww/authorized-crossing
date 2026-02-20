@@ -790,6 +790,7 @@ export function createEscapeScene(Phaser, shared) {
         const penalty = getLaneControlPenalty(Math.floor(this.laneControlViolationLevel));
         const nextMoney = Math.max(0, this.state.getMoney() - penalty);
         this.state.setMoney(nextMoney);
+        this.run.laneControlPenaltyPaid = (this.run.laneControlPenaltyPaid || 0) + penalty;
         this.laneControlViolationLevel += 1;
       }
     }
@@ -835,6 +836,7 @@ export function createEscapeScene(Phaser, shared) {
           this.rewardLineStreak = 1;
         }
         this.rewardLineLastClaimAt = this.elapsed;
+        this.run.rewardLineClaims = (this.run.rewardLineClaims || 0) + 1;
         this.state.setMoney(this.state.getMoney() + event.bonus);
         const streakTag = this.rewardLineStreak > 1 ? `  x${this.rewardLineStreak}` : "";
         this.hud.showToast(`Bonus +${event.bonus}${streakTag}`, UI_THEME.success, 950);
@@ -958,6 +960,7 @@ export function createEscapeScene(Phaser, shared) {
       if (nearMissNow && !car.nearMissed) {
         car.nearMissed = true;
         this.nearMissCount += 1;
+        this.run.nearMissCount = this.nearMissCount;
         this.state.setMoney(this.state.getMoney() + NEAR_MISS_BONUS);
         if (this.nearMissToastCooldown <= 0) {
           this.hud.showToast(`Near miss +${NEAR_MISS_BONUS}`, UI_THEME.success, 680);

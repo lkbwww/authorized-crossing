@@ -92,6 +92,30 @@ export function buildFailureLearning(resultData, summary) {
     );
   }
 
+  if ((summary.laneControlPenaltyPaid || 0) >= 8) {
+    candidates.push(
+      buildCandidate(
+        "lane_control_tax",
+        86,
+        "Priority cause: repeated lane-control penalties drained your economy and pace.",
+        "Next run action: leave controlled lanes immediately; if you chase a risk bonus line, cross fast and exit.",
+        ["publicInfo", "boat", "waterproofBag"]
+      )
+    );
+  }
+
+  if ((summary.rewardLineClaims || 0) === 0 && (summary.escapeTimeSpent || 0) >= 20) {
+    candidates.push(
+      buildCandidate(
+        "missed_escape_economy",
+        64,
+        "Priority cause: no escape bonus lines were secured, reducing buffer for mistakes.",
+        "Next run action: take one safe bonus line per 10s window instead of only dodging traffic.",
+        ["boat", "publicInfo"]
+      )
+    );
+  }
+
   if (candidates.length === 0) {
     candidates.push(
       buildCandidate(

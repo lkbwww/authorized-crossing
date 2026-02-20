@@ -18,6 +18,9 @@ function baseSummary(overrides = {}) {
     escapeTimeSpent: 10,
     boostUseTime: 2,
     boostUseCount: 1,
+    nearMissCount: 0,
+    rewardLineClaims: 0,
+    laneControlPenaltyPaid: 0,
     ...overrides,
   };
 }
@@ -54,5 +57,19 @@ test("low money without other signals falls back to economy shortfall", () => {
   );
 
   assert.equal(learning.reasonId, "economy_shortfall");
+  assert.equal(learning.itemId, "publicInfo");
+});
+
+test("heavy lane-control penalties are recognized as dominant failure pattern", () => {
+  const learning = buildFailureLearning(
+    { endingId: "ARREST", subtitle: "You are arrested." },
+    baseSummary({
+      laneControlPenaltyPaid: 12,
+      money: 80,
+      escapeTimeSpent: 26,
+    })
+  );
+
+  assert.equal(learning.reasonId, "lane_control_tax");
   assert.equal(learning.itemId, "publicInfo");
 });
