@@ -24,6 +24,7 @@ import {
   LATERAL_SPEED,
   MAX_SURVEILLANCE_ENTITIES,
   RIVER_BOOST_DRAIN_PER_SEC,
+  RIVER_BOOST_EXHAUST_COOLDOWN,
   RIVER_BOOST_MAX_CHARGE,
   RIVER_BOOST_MIN_ACTIVATE,
   RIVER_BOOST_MULT,
@@ -102,6 +103,7 @@ export function createRiverScene(Phaser, shared) {
       this.touchControls = null;
       this.boostUseTime = 0;
       this.boostUseCount = 0;
+      this.boostCooldownUntil = 0;
     }
 
     init() {
@@ -973,8 +975,10 @@ export function createRiverScene(Phaser, shared) {
       }
 
       let forwardSpeed = BASE_FORWARD_SPEED * speedMult;
+      const cooldownActive = this.elapsed < this.boostCooldownUntil;
       const wantsBoost = this.isBoostHeld() && this.isForwardHeld() && !this.submerged;
-      const canStartBoost = this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE || this.boostActive;
+      const canStartBoost =
+        !cooldownActive && (this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE || this.boostActive);
       const wasBoostActive = this.boostActive;
       this.boostActive = wantsBoost && canStartBoost && this.boostCharge > 0;
       if (this.boostActive && !wasBoostActive) {
@@ -988,6 +992,7 @@ export function createRiverScene(Phaser, shared) {
         this.boostCharge = clamp(this.boostCharge - RIVER_BOOST_DRAIN_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
         if (this.boostCharge <= 0) {
           this.boostActive = false;
+          this.boostCooldownUntil = this.elapsed + RIVER_BOOST_EXHAUST_COOLDOWN;
           if (!this.boostExhaustedNotified) {
             this.boostExhaustedNotified = true;
             this.hud.showToast("BOOST exhausted", UI_THEME.warn, 700);
@@ -995,7 +1000,11 @@ export function createRiverScene(Phaser, shared) {
         }
       } else {
         this.boostCharge = clamp(this.boostCharge + RIVER_BOOST_RECOVER_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
-        if (this.boostExhaustedNotified && this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE) {
+        if (
+          this.boostExhaustedNotified &&
+          !cooldownActive &&
+          this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE
+        ) {
           this.boostExhaustedNotified = false;
           this.hud.showToast("BOOST ready", UI_THEME.success, 600);
         }
@@ -1536,6 +1545,7 @@ export function createRiverScene(Phaser, shared) {
             `spawnInterval ${this.spawnInterval.toFixed(2)}`,
             `exposureDelta ${this.lastExposureDelta.toFixed(2)}`,
             `boost ${this.boostCharge.toFixed(1)}${this.boostActive ? " active" : ""}`,
+            `boostCd ${Math.max(0, this.boostCooldownUntil - this.elapsed).toFixed(1)}`,
           ].join("  |  ")
         );
       }

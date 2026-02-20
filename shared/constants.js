@@ -23,6 +23,7 @@ export const RIVER_BOOST_MAX_CHARGE = 100;
 export const RIVER_BOOST_MIN_ACTIVATE = 16;
 export const RIVER_BOOST_DRAIN_PER_SEC = 50;
 export const RIVER_BOOST_RECOVER_PER_SEC = 30;
+export const RIVER_BOOST_EXHAUST_COOLDOWN = 2.2;
 
 // Economy constants.
 export const STARTING_MONEY = 100;
