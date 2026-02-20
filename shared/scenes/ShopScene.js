@@ -1,3 +1,7 @@
+/**
+ * Pre-run shop scene:
+ * buy items, inspect season/risk window, and start the crossing.
+ */
 import { GAME_TITLE, ITEM_DEFINITIONS, SHOP_TITLE, UI_THEME } from "../constants.js";
 import { createButton } from "../ui/common.js";
 import { formatWindow } from "../utils.js";
@@ -12,6 +16,7 @@ export function createShopScene(Phaser, shared) {
     }
 
     create() {
+      // Each visit to shop starts a fresh run snapshot.
       this.state = shared.gameState;
       this.state.prepareNewRun();
       this.run = this.state.run;
@@ -70,7 +75,7 @@ export function createShopScene(Phaser, shared) {
         .setOrigin(0, 0);
 
       this.add
-        .text(318, 288, "UP / DOWN: Select   ENTER: Buy   SPACE: Start", {
+        .text(318, 288, "UP / DOWN: Select   ENTER: Buy   SPACE: Start   SHIFT: Boost in river", {
           fontFamily: "'Arial Black', Impact, sans-serif",
           fontStyle: "bold",
           fontSize: "15px",
@@ -141,6 +146,7 @@ export function createShopScene(Phaser, shared) {
     }
 
     bindInputs(Phaser) {
+      // Support arrows + number keys + numpad for quick item targeting.
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.keyUp = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
@@ -174,6 +180,7 @@ export function createShopScene(Phaser, shared) {
     }
 
     createMerchantFigure() {
+      // In-scene pixel-primitive merchant prop for black-market tone.
       const figure = this.add.container(1080, 206);
 
       const shoulders = this.add.rectangle(0, 96, 220, 126, 0x4d3525, 1).setStrokeStyle(2, 0x6e4d31, 1);
@@ -199,6 +206,7 @@ export function createShopScene(Phaser, shared) {
     }
 
     update() {
+      // Shop navigation and purchase handling are fully keyboard-driven.
       const prev =
         Phaser.Input.Keyboard.JustDown(this.keyUp) || Phaser.Input.Keyboard.JustDown(this.keyLeft);
       const next =
@@ -240,6 +248,7 @@ export function createShopScene(Phaser, shared) {
     }
 
     refreshUi() {
+      // Re-render the shop list and selected item details from current run state.
       const risk = this.state.getRiskWindow();
       this.moneyText.setText(`MONEY: $${this.state.getMoney()}`);
       this.seasonText.setText(`SEASON: ${this.state.getSeason()}`);

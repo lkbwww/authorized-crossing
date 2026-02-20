@@ -1,3 +1,7 @@
+/**
+ * Screen-space HUD renderer for river and escape scenes.
+ * Keeps gameplay telemetry and item slots readable while camera scrolls.
+ */
 import {
   BREATH_MAX,
   INTERNAL_WIDTH,
@@ -45,6 +49,7 @@ export class HUD {
   }
 
   createPanels() {
+    // Fixed panels stay in screen space (scrollFactor = 0).
     this.panelLeft = fixedRect(this.scene, 180, 56, 340, 92, UI_THEME.panel, 0.9).setStrokeStyle(2, UI_THEME.border, 1);
     this.panelCenter = fixedRect(this.scene, INTERNAL_WIDTH / 2, 58, 460, 110, UI_THEME.panel, 0.9).setStrokeStyle(2, UI_THEME.border, 1);
     this.panelRight = fixedRect(this.scene, 1110, 62, 300, 124, UI_THEME.panel, 0.9).setStrokeStyle(2, UI_THEME.border, 1);
@@ -89,7 +94,7 @@ export class HUD {
       0
     );
 
-    this.exposureLabel = fixedText(this.scene, 980, 18, "EXPOSURE", {
+    this.exposureLabel = fixedText(this.scene, 980, 18, "BOOST", {
       fontFamily: "'Arial Black', Impact, sans-serif",
           fontStyle: "bold",
       fontSize: "15px",
@@ -144,6 +149,7 @@ export class HUD {
   }
 
   updateRiver(data) {
+    // River mode shows crossing timer and optional breath readout.
     const injuredBadge = data.injured ? "  [INJURED]" : "";
     this.leftText.setText(`MONEY $${data.money}\nSEASON ${data.season}${injuredBadge}`);
 
@@ -165,8 +171,11 @@ export class HUD {
       this.progressRiskOverlay.strokeRect(x, 36, w, 20);
     }
 
-    this.exposureBar.clear();
-    this.exposureLabel.setVisible(false);
+    const boostRatio = clamp((data.boostCharge ?? 0) / 100, 0, 1);
+    const boostColor = data.boostActive ? 0xe0a84a : 0x7a7b4f;
+    this.exposureLabel.setVisible(true);
+    this.exposureLabel.setText(`BOOST ${Math.round((data.boostCharge ?? 0))}%${data.boostActive ? " ACTIVE" : ""}`);
+    drawBar(this.exposureBar, 980, 34, 270, 18, boostRatio, boostColor, 0x1a120d);
 
     const showBreath = !!data.showBreath;
     this.breathLabel.setVisible(showBreath);
@@ -180,6 +189,7 @@ export class HUD {
   }
 
   updateEscape(data) {
+    // Escape mode hides exposure/breath and focuses on destination progress.
     const injuredBadge = data.injured ? "  [INJURED]" : "";
     this.leftText.setText(`MONEY $${data.money}\nSEASON ${data.season}${injuredBadge}`);
     this.centerText.setText(`ESCAPE... ${Math.max(0, data.secLeft).toFixed(1)}s`);

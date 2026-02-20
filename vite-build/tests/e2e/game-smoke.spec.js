@@ -1,3 +1,7 @@
+/**
+ * High-level smoke test:
+ * boot game, step Intro -> Shop -> River, and fail on runtime errors.
+ */
 import { expect, test } from "@playwright/test";
 
 async function activeSceneKey(page) {
@@ -9,6 +13,22 @@ async function activeSceneKey(page) {
     const activeScenes = game.scene.getScenes(true);
     return activeScenes?.[0]?.scene?.key ?? null;
   });
+}
+
+async function goToRiverScene(page) {
+  await page.goto("/");
+  await expect(page.locator("#game-root canvas")).toBeVisible();
+  await page.waitForFunction(() => !!window.__authorizedCrossingGame);
+
+  await expect.poll(() => activeSceneKey(page)).toBe("IntroScene");
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(250);
+  await page.keyboard.press("Space");
+  await expect.poll(() => activeSceneKey(page)).toBe("ShopScene");
+  await page.keyboard.press("Space");
+  await expect.poll(() => activeSceneKey(page)).toBe("RiverScene");
 }
 
 test("game boots and reaches RiverScene from Intro", async ({ page }) => {
@@ -24,27 +44,41 @@ test("game boots and reaches RiverScene from Intro", async ({ page }) => {
     }
   });
 
-  await page.goto("/");
-  await expect(page.locator("#game-root canvas")).toBeVisible();
-  await page.waitForFunction(() => !!window.__authorizedCrossingGame);
-
-  await expect.poll(() => activeSceneKey(page)).toBe("IntroScene");
-
-  // Intro -> briefing typing
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(200);
-
-  // Finish typing / reveal merchant
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(250);
-
-  // Continue to shop
-  await page.keyboard.press("Space");
-  await expect.poll(() => activeSceneKey(page)).toBe("ShopScene");
-
-  // Shop -> river
-  await page.keyboard.press("Space");
-  await expect.poll(() => activeSceneKey(page)).toBe("RiverScene");
+  await goToRiverScene(page);
 
   expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
+});
+
+test("river boost consumes and recovers charge", async ({ page }) => {
+  await goToRiverScene(page);
+
+  const initialBoost = await page.evaluate(() => {
+    const game = window.__authorizedCrossingGame;
+    const scene = game?.scene?.keys?.RiverScene;
+    return scene?.boostCharge ?? null;
+  });
+  expect(initialBoost).not.toBeNull();
+
+  await page.keyboard.down("ArrowUp");
+  await page.keyboard.down("Shift");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("Shift");
+  await page.keyboard.up("ArrowUp");
+
+  const drainedBoost = await page.evaluate(() => {
+    const game = window.__authorizedCrossingGame;
+    const scene = game?.scene?.keys?.RiverScene;
+    return scene?.boostCharge ?? null;
+  });
+  expect(drainedBoost).not.toBeNull();
+  expect(drainedBoost).toBeLessThan(initialBoost);
+
+  await page.waitForTimeout(1000);
+  const recoveredBoost = await page.evaluate(() => {
+    const game = window.__authorizedCrossingGame;
+    const scene = game?.scene?.keys?.RiverScene;
+    return scene?.boostCharge ?? null;
+  });
+  expect(recoveredBoost).not.toBeNull();
+  expect(recoveredBoost).toBeGreaterThan(drainedBoost);
 });

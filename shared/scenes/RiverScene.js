@@ -1,3 +1,7 @@
+/**
+ * Main crossing gameplay scene.
+ * Implements movement, risk-window surveillance, exposure, and bus-stop handoff.
+ */
 import {
   BASE_FORWARD_SPEED,
   BREATH_DRAIN_FATIGUE_PER_SEC,
@@ -19,6 +23,12 @@ import {
   INTERNAL_WIDTH,
   LATERAL_SPEED,
   MAX_SURVEILLANCE_ENTITIES,
+  RIVER_BOOST_DRAIN_PER_SEC,
+  RIVER_BOOST_MAX_CHARGE,
+  RIVER_BOOST_MIN_ACTIVATE,
+  RIVER_BOOST_MULT,
+  RIVER_BOOST_NOISE_BOOST,
+  RIVER_BOOST_RECOVER_PER_SEC,
   RIVER_DURATION,
   REQUIRED_STRINGS,
   SEASON_DEFINITIONS,
@@ -80,6 +90,9 @@ export function createRiverScene(Phaser, shared) {
       this.motionMode = "RUNNING";
       this.swimWavePhase = 0;
       this.motionFrameClock = 0;
+      this.boostCharge = RIVER_BOOST_MAX_CHARGE;
+      this.boostActive = false;
+      this.boostExhaustedNotified = false;
       this.busStopResolved = false;
       this.trailMarks = [];
       this.trailCooldown = 0;
@@ -92,6 +105,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     create() {
+      // Scene-local snapshot of shared run state; reset once per scene entry.
       this.state = shared.gameState;
       this.run = this.state.run;
       this.seasonKey = this.state.getSeason();
@@ -307,6 +321,7 @@ export function createRiverScene(Phaser, shared) {
       this.keyRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
       this.keyUp = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
       this.keyDown = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+      this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
       this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
       this.keyP = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
       this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
@@ -318,6 +333,7 @@ export function createRiverScene(Phaser, shared) {
         Phaser.Input.Keyboard.KeyCodes.RIGHT,
         Phaser.Input.Keyboard.KeyCodes.UP,
         Phaser.Input.Keyboard.KeyCodes.DOWN,
+        Phaser.Input.Keyboard.KeyCodes.SHIFT,
         Phaser.Input.Keyboard.KeyCodes.SPACE,
       ]);
     }
@@ -370,6 +386,7 @@ export function createRiverScene(Phaser, shared) {
       }
 
       const dt = deltaMs / 1000;
+      // Main frame loop: spawn/update/move/check in deterministic order.
       this.elapsed += dt;
       this.run.riverTimeSpent = this.elapsed;
 
@@ -432,6 +449,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     spawnSurveillanceByCadence(dt) {
+      // Spawn cadence ramps with phase and risk-window intensity.
       this.spawnInterval = this.getSpawnInterval();
       this.spawnAccumulator += dt;
 
@@ -870,6 +888,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     computeMovementState(dt) {
+      // Derive effective speed/noise/inertia from season, items, injury, submerge.
       let speedMult = this.season.speedMult;
       let noise = this.season.noise;
       let inertia = this.seasonKey === "WINTER" ? 0.02 : 1;
@@ -906,6 +925,29 @@ export function createRiverScene(Phaser, shared) {
       }
 
       let forwardSpeed = BASE_FORWARD_SPEED * speedMult;
+      const wantsBoost = this.keyShift.isDown && this.keyUp.isDown && !this.submerged;
+      const canStartBoost = this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE || this.boostActive;
+      this.boostActive = wantsBoost && canStartBoost && this.boostCharge > 0;
+
+      if (this.boostActive) {
+        forwardSpeed *= RIVER_BOOST_MULT;
+        noise += RIVER_BOOST_NOISE_BOOST;
+        this.boostCharge = clamp(this.boostCharge - RIVER_BOOST_DRAIN_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
+        if (this.boostCharge <= 0) {
+          this.boostActive = false;
+          if (!this.boostExhaustedNotified) {
+            this.boostExhaustedNotified = true;
+            this.hud.showToast("BOOST exhausted", UI_THEME.warn, 700);
+          }
+        }
+      } else {
+        this.boostCharge = clamp(this.boostCharge + RIVER_BOOST_RECOVER_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
+        if (this.boostExhaustedNotified && this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE) {
+          this.boostExhaustedNotified = false;
+          this.hud.showToast("BOOST ready", UI_THEME.success, 600);
+        }
+      }
+
       if (this.inFastCurrent) {
         forwardSpeed *= this.hasBoat ? FAST_CURRENT_BOAT_SPEED_MULT : FAST_CURRENT_SPEED_MULT;
       }
@@ -947,6 +989,7 @@ export function createRiverScene(Phaser, shared) {
       }
 
       this.player.body.velocity.y = 0;
+      // Camera scroll is the authoritative forward movement in runner mode.
       this.cameras.main.scrollY = clamp(this.cameras.main.scrollY - forwardDelta, WORLD_TOP, 0);
       this.player.y = this.cameras.main.scrollY + this.playerAnchorY;
       this.player.x = clamp(this.player.x, 48, INTERNAL_WIDTH - 48);
@@ -1139,6 +1182,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     updateExposure(dt) {
+      // Detection zone contact is immediate arrest in current ruleset.
       const inRisk = this.isInRiskWindow();
       const insideActiveZone = this.isInsideActiveZone();
 
@@ -1289,6 +1333,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     handleRiverEndBusStop() {
+      // Enter bus-stop transition once when river terminal is reached.
       if (this.busStopResolved || this.isEnding) {
         return;
       }
@@ -1322,6 +1367,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     triggerRiverBusEncounter() {
+      // Resolve bus attempt immediately; insufficient money routes to escape scene.
       const busBody = this.add
         .rectangle(-240, this.riverTerminalY + 20, 300, 102, 0x6e4d31, 1)
         .setStrokeStyle(3, 0xb08d57, 1)
@@ -1399,6 +1445,8 @@ export function createRiverScene(Phaser, shared) {
         exposure: this.exposure,
         breath: this.breath,
         showBreath: this.seasonKey === "SUMMER",
+        boostCharge: this.boostCharge,
+        boostActive: this.boostActive,
         itemsOwned,
         riskWindow: this.riskWindow,
         totalDuration: RIVER_DURATION,
@@ -1429,6 +1477,7 @@ export function createRiverScene(Phaser, shared) {
             `noiseEffective ${this.noiseEffective.toFixed(2)}`,
             `spawnInterval ${this.spawnInterval.toFixed(2)}`,
             `exposureDelta ${this.lastExposureDelta.toFixed(2)}`,
+            `boost ${this.boostCharge.toFixed(1)}${this.boostActive ? " active" : ""}`,
           ].join("  |  ")
         );
       }
