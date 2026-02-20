@@ -172,6 +172,7 @@ export function createResultScene(Phaser, shared) {
           `SEASON: ${summary.season}   TEMPLATE: ${summary.template}   MONEY: $${summary.money}   INJURED: ${summary.injured ? "YES" : "NO"}`,
           `INSPECTIONS: ${summary.inspectionCount}   PEAK EXPOSURE: ${summary.exposurePeak}   RIVER: ${summary.riverTimeSpent.toFixed(1)}s   ESCAPE: ${summary.escapeTimeSpent.toFixed(1)}s`,
           `BOOST USED: ${summary.boostUseTime.toFixed(1)}s (${summary.boostUseCount} activations)`,
+          `ESCAPE EVENTS: NEAR MISS ${summary.nearMissCount}   BONUS LINES ${summary.rewardLineClaims}   CONTROL TAX $${summary.laneControlPenaltyPaid}`,
           `ITEMS OWNED: ${ownedItems}`,
           `CONFISCATED: ${confiscated}`,
         ].join("\n")
@@ -185,7 +186,13 @@ export function createResultScene(Phaser, shared) {
         this.feedbackText.setText("Failure run: optional rewarded training is available.");
       } else {
         this.learningText.setVisible(false);
-        this.feedbackText.setText("");
+        if (summary.rewardLineClaims >= 2 && summary.laneControlPenaltyPaid <= 4) {
+          this.feedbackText.setText("Clean tactical run: keep chaining bonus lines while avoiding lane-control tax.");
+        } else if (summary.laneControlPenaltyPaid >= 8) {
+          this.feedbackText.setText("Success with heavy control tax: safer lane exits can stabilize your next run.");
+        } else {
+          this.feedbackText.setText("");
+        }
       }
     }
 
