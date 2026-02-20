@@ -1,3 +1,7 @@
+/**
+ * End-of-run result scene.
+ * Handles summary, retry flow, fake interstitial/rewarded ads, and rewards.
+ */
 import { REWARD_CHOICES } from "../constants.js";
 import { isFailureEnding } from "../utils.js";
 import { createButton } from "../ui/common.js";
@@ -15,6 +19,7 @@ export function createResultScene(Phaser, shared) {
     }
 
     create() {
+      // Fallback protects against direct scene jumps without payload.
       this.state = shared.gameState;
       this.adManager = shared.adManager;
       this.resultData = this.resultData || this.state.getResult() || {
@@ -130,6 +135,7 @@ export function createResultScene(Phaser, shared) {
     async startResultSequence() {
       const round = this.state.incrementRoundCount();
 
+      // Show fake interstitial every second completed round.
       if (round % 2 === 0) {
         await this.adManager.showInterstitial(this);
       }
@@ -138,6 +144,7 @@ export function createResultScene(Phaser, shared) {
     }
 
     renderResult() {
+      // Render immutable run summary snapshot for post-run review.
       const summary = this.state.getRunSummary();
       const isFailure = isFailureEnding(this.resultData.endingId);
 
@@ -151,6 +158,7 @@ export function createResultScene(Phaser, shared) {
         [
           `SEASON: ${summary.season}   TEMPLATE: ${summary.template}   MONEY: $${summary.money}   INJURED: ${summary.injured ? "YES" : "NO"}`,
           `INSPECTIONS: ${summary.inspectionCount}   PEAK EXPOSURE: ${summary.exposurePeak}   RIVER: ${summary.riverTimeSpent.toFixed(1)}s   ESCAPE: ${summary.escapeTimeSpent.toFixed(1)}s`,
+          `BOOST USED: ${summary.boostUseTime.toFixed(1)}s (${summary.boostUseCount} activations)`,
           `ITEMS OWNED: ${ownedItems}`,
           `CONFISCATED: ${confiscated}`,
         ].join("\n")
@@ -177,6 +185,7 @@ export function createResultScene(Phaser, shared) {
         return;
       }
 
+      // Reward selection is only shown after ad completion.
       this.feedbackText.setText("Reward earned. Select one bonus for the next run.");
       this.showRewardChoices();
     }

@@ -1,8 +1,13 @@
+/**
+ * Minimal on-screen controls for mobile play.
+ * Exposes mutable flags that scenes can read each frame.
+ */
 export function createTouchControls(scene, options = {}) {
   const width = scene.scale.width;
   const height = scene.scale.height;
   const showDownButton = !!options.showDownButton;
   const showUpButton = !!options.showUpButton;
+  const showBoostButton = !!options.showBoostButton;
 
   const buttonWidth = 150;
   const buttonHeight = 84;
@@ -12,6 +17,7 @@ export function createTouchControls(scene, options = {}) {
   let rightPressed = false;
   let downPressed = false;
   let upPressed = false;
+  let boostPressed = false;
 
   const leftRect = scene.add
     .rectangle(120, y, buttonWidth, buttonHeight, 0x2c1f15, 0.65)
@@ -30,6 +36,13 @@ export function createTouchControls(scene, options = {}) {
   const upRect = showUpButton
     ? scene.add
         .rectangle(width / 2, y - 96, buttonWidth, buttonHeight, 0x2c1f15, 0.65)
+        .setStrokeStyle(2, 0xb08a63, 0.95)
+        .setInteractive()
+    : null;
+  const boostY = showUpButton ? y - 192 : y - 96;
+  const boostRect = showBoostButton
+    ? scene.add
+        .rectangle(width / 2, boostY, buttonWidth, buttonHeight, 0x2c1f15, 0.65)
         .setStrokeStyle(2, 0xb08a63, 0.95)
         .setInteractive()
     : null;
@@ -70,6 +83,16 @@ export function createTouchControls(scene, options = {}) {
         })
         .setOrigin(0.5)
     : null;
+  const boostText = showBoostButton
+    ? scene.add
+        .text(width / 2, boostY, "BOOST", {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontStyle: "bold",
+          fontSize: "24px",
+          color: "#f3e8d8",
+        })
+        .setOrigin(0.5)
+    : null;
 
   const onPress = (rect, side) => {
     rect.setFillStyle(0x7a4f2e, 0.8);
@@ -79,11 +102,14 @@ export function createTouchControls(scene, options = {}) {
       rightPressed = true;
     } else if (side === "down") {
       downPressed = true;
+    } else if (side === "boost") {
+      boostPressed = true;
     } else {
       upPressed = true;
     }
   };
 
+  // Keep pressed-state deterministic by handling all pointer release variants.
   const onRelease = (rect, side) => {
     rect.setFillStyle(0x2c1f15, 0.65);
     if (side === "left") {
@@ -92,6 +118,8 @@ export function createTouchControls(scene, options = {}) {
       rightPressed = false;
     } else if (side === "down") {
       downPressed = false;
+    } else if (side === "boost") {
+      boostPressed = false;
     } else {
       upPressed = false;
     }
@@ -119,12 +147,20 @@ export function createTouchControls(scene, options = {}) {
     upRect.on("pointerout", () => onRelease(upRect, "up"));
     upRect.on("pointerupoutside", () => onRelease(upRect, "up"));
   }
+  if (boostRect) {
+    boostRect.on("pointerdown", () => onPress(boostRect, "boost"));
+    boostRect.on("pointerup", () => onRelease(boostRect, "boost"));
+    boostRect.on("pointerout", () => onRelease(boostRect, "boost"));
+    boostRect.on("pointerupoutside", () => onRelease(boostRect, "boost"));
+  }
 
   return {
+    // Accessors are used by scenes to merge touch input with keyboard input.
     isLeftPressed: () => leftPressed,
     isRightPressed: () => rightPressed,
     isDownPressed: () => downPressed,
     isUpPressed: () => upPressed,
+    isBoostPressed: () => boostPressed,
     destroy() {
       leftRect.destroy();
       rightRect.destroy();
@@ -134,6 +170,9 @@ export function createTouchControls(scene, options = {}) {
       if (upRect) {
         upRect.destroy();
       }
+      if (boostRect) {
+        boostRect.destroy();
+      }
       leftText.destroy();
       rightText.destroy();
       if (downText) {
@@ -141,6 +180,9 @@ export function createTouchControls(scene, options = {}) {
       }
       if (upText) {
         upText.destroy();
+      }
+      if (boostText) {
+        boostText.destroy();
       }
     },
   };

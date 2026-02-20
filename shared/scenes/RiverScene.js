@@ -42,6 +42,7 @@ import { playBeep } from "../audio/beep.js";
 import { MotionAudioController } from "../audio/motionAudio.js";
 import { ensurePixelTextures, getSeasonTreeTexture } from "../assets/pixelTextures.js";
 import { HUD } from "../ui/HUD.js";
+import { createTouchControls } from "../ui/TouchControls.js";
 import { clamp, randomInt } from "../utils.js";
 
 const WORLD_TOP = -WORLD_HEIGHT;
@@ -98,6 +99,9 @@ export function createRiverScene(Phaser, shared) {
       this.trailCooldown = 0;
       this.footstepSide = 1;
       this.motionAudio = null;
+      this.touchControls = null;
+      this.boostUseTime = 0;
+      this.boostUseCount = 0;
     }
 
     init() {
@@ -125,11 +129,16 @@ export function createRiverScene(Phaser, shared) {
       this.createHud();
       this.createDebugOverlay();
       this.setupInput(Phaser);
+      this.setupTouchControls();
       this.planFastCurrentWindows();
 
       this.events.once("shutdown", () => {
         if (this.hud) {
           this.hud.destroy();
+        }
+        if (this.touchControls) {
+          this.touchControls.destroy();
+          this.touchControls = null;
         }
         this.destroyEntities();
         this.destroyFastCurrentZones();
@@ -322,6 +331,7 @@ export function createRiverScene(Phaser, shared) {
       this.keyUp = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
       this.keyDown = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
       this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+      this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
       this.keyP = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
       this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
@@ -336,6 +346,44 @@ export function createRiverScene(Phaser, shared) {
         Phaser.Input.Keyboard.KeyCodes.SHIFT,
         Phaser.Input.Keyboard.KeyCodes.SPACE,
       ]);
+    }
+
+    setupTouchControls() {
+      if (!this.sys.game.device.input.touch) {
+        return;
+      }
+
+      // Allow UP+BOOST chord on touch devices.
+      const minPointers = 3;
+      const missingPointers = Math.max(0, minPointers - this.input.manager.pointersTotal);
+      if (missingPointers > 0) {
+        this.input.addPointer(missingPointers);
+      }
+      this.touchControls = createTouchControls(this, {
+        showUpButton: true,
+        showDownButton: this.canSubmerge,
+        showBoostButton: true,
+      });
+    }
+
+    isLeftHeld() {
+      return this.keyLeft.isDown || !!this.touchControls?.isLeftPressed();
+    }
+
+    isRightHeld() {
+      return this.keyRight.isDown || !!this.touchControls?.isRightPressed();
+    }
+
+    isForwardHeld() {
+      return this.keyUp.isDown || !!this.touchControls?.isUpPressed();
+    }
+
+    isDiveHeld() {
+      return this.keyDown.isDown || this.keyS.isDown || !!this.touchControls?.isDownPressed();
+    }
+
+    isBoostHeld() {
+      return this.keyShift.isDown || this.keySpace.isDown || !!this.touchControls?.isBoostPressed();
     }
 
     planFastCurrentWindows() {
@@ -909,8 +957,8 @@ export function createRiverScene(Phaser, shared) {
       }
 
       if (this.canSubmerge) {
-        const diveHeld = this.keyDown.isDown || this.keyS.isDown;
-        const surfaceHeld = this.keyUp.isDown;
+        const diveHeld = this.isDiveHeld();
+        const surfaceHeld = this.isForwardHeld();
         const wasSubmerged = this.submerged;
         this.submerged = diveHeld && !surfaceHeld;
         if (this.submerged && !wasSubmerged) {
@@ -925,13 +973,18 @@ export function createRiverScene(Phaser, shared) {
       }
 
       let forwardSpeed = BASE_FORWARD_SPEED * speedMult;
-      const wantsBoost = this.keyShift.isDown && this.keyUp.isDown && !this.submerged;
+      const wantsBoost = this.isBoostHeld() && this.isForwardHeld() && !this.submerged;
       const canStartBoost = this.boostCharge >= RIVER_BOOST_MIN_ACTIVATE || this.boostActive;
+      const wasBoostActive = this.boostActive;
       this.boostActive = wantsBoost && canStartBoost && this.boostCharge > 0;
+      if (this.boostActive && !wasBoostActive) {
+        this.boostUseCount += 1;
+      }
 
       if (this.boostActive) {
         forwardSpeed *= RIVER_BOOST_MULT;
         noise += RIVER_BOOST_NOISE_BOOST;
+        this.boostUseTime += dt;
         this.boostCharge = clamp(this.boostCharge - RIVER_BOOST_DRAIN_PER_SEC * dt, 0, RIVER_BOOST_MAX_CHARGE);
         if (this.boostCharge <= 0) {
           this.boostActive = false;
@@ -947,6 +1000,9 @@ export function createRiverScene(Phaser, shared) {
           this.hud.showToast("BOOST ready", UI_THEME.success, 600);
         }
       }
+
+      this.run.boostUseTime = this.boostUseTime;
+      this.run.boostUseCount = this.boostUseCount;
 
       if (this.inFastCurrent) {
         forwardSpeed *= this.hasBoat ? FAST_CURRENT_BOAT_SPEED_MULT : FAST_CURRENT_SPEED_MULT;
@@ -971,9 +1027,9 @@ export function createRiverScene(Phaser, shared) {
     }
 
     updatePlayerMovement(movement, dt) {
-      const input = (this.keyRight.isDown ? 1 : 0) - (this.keyLeft.isDown ? 1 : 0);
+      const input = (this.isRightHeld() ? 1 : 0) - (this.isLeftHeld() ? 1 : 0);
       const targetX = input * LATERAL_SPEED;
-      const moveForward = this.keyUp.isDown;
+      const moveForward = this.isForwardHeld();
       let forwardDelta = moveForward ? movement.forwardSpeed * dt : 0;
 
       if (this.seasonKey === "WINTER") {
@@ -1026,7 +1082,7 @@ export function createRiverScene(Phaser, shared) {
 
     applyMotionModeVisuals(dt) {
       this.swimWavePhase += dt * 10;
-      const movingForward = this.keyUp.isDown || Math.abs(this.winterMomentumY) > 18;
+      const movingForward = this.isForwardHeld() || Math.abs(this.winterMomentumY) > 18;
       const movingLateral = Math.abs(this.player.body.velocity.x) > 20;
       const moving = movingForward || movingLateral;
       this.motionFrameClock += dt * (moving ? 10 : 4.4);
@@ -1083,7 +1139,7 @@ export function createRiverScene(Phaser, shared) {
     }
 
     updateTrailEffects(dt) {
-      const movingForward = this.keyUp.isDown || Math.abs(this.winterMomentumY) > 18;
+      const movingForward = this.isForwardHeld() || Math.abs(this.winterMomentumY) > 18;
       const movingLateral = Math.abs(this.player.body.velocity.x) > 22;
       if (!movingForward && !movingLateral) {
         this.trailCooldown = 0;
@@ -1447,6 +1503,8 @@ export function createRiverScene(Phaser, shared) {
         showBreath: this.seasonKey === "SUMMER",
         boostCharge: this.boostCharge,
         boostActive: this.boostActive,
+        boostUseTime: this.boostUseTime,
+        boostUseCount: this.boostUseCount,
         itemsOwned,
         riskWindow: this.riskWindow,
         totalDuration: RIVER_DURATION,

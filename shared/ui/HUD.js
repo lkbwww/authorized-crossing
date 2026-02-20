@@ -173,8 +173,12 @@ export class HUD {
 
     const boostRatio = clamp((data.boostCharge ?? 0) / 100, 0, 1);
     const boostColor = data.boostActive ? 0xe0a84a : 0x7a7b4f;
+    const boostUseTime = data.boostUseTime ?? 0;
+    const boostUseCount = data.boostUseCount ?? 0;
     this.exposureLabel.setVisible(true);
-    this.exposureLabel.setText(`BOOST ${Math.round((data.boostCharge ?? 0))}%${data.boostActive ? " ACTIVE" : ""}`);
+    this.exposureLabel.setText(
+      `BOOST ${Math.round((data.boostCharge ?? 0))}%${data.boostActive ? " ACTIVE" : ""}  ${boostUseTime.toFixed(1)}s x${boostUseCount}`
+    );
     drawBar(this.exposureBar, 980, 34, 270, 18, boostRatio, boostColor, 0x1a120d);
 
     const showBreath = !!data.showBreath;

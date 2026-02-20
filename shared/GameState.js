@@ -1,3 +1,7 @@
+/**
+ * Central run-state container.
+ * Keeps deterministic economy, inventory, risk windows, and ending state.
+ */
 import {
   BASE_FINE,
   BUS_FARE,
@@ -29,6 +33,7 @@ export class GameState {
     this.prepareNewRun();
   }
 
+  // Starts a brand-new run while consuming any one-run reward bonuses.
   prepareNewRun() {
     const bonus = { ...this.nextRunBonus };
     this.nextRunBonus = { money: 0, fakePapers: 0, riskShortenSeconds: 0 };
@@ -50,6 +55,8 @@ export class GameState {
       riskWindowSnapshot: null,
       riverTimeSpent: 0,
       escapeTimeSpent: 0,
+      boostUseTime: 0,
+      boostUseCount: 0,
     };
   }
 
@@ -111,6 +118,7 @@ export class GameState {
     return { ok: true, message: `Purchased ${item.name}` };
   }
 
+  // Computes the active risk window from base rules + purchased modifiers.
   getRiskWindow() {
     const durationBase = DEFAULT_RISK_WINDOW.end - DEFAULT_RISK_WINDOW.start;
     const shiftedStart =
@@ -122,6 +130,7 @@ export class GameState {
     };
   }
 
+  // Locks the current risk window so the run stays deterministic after shop.
   lockRiskWindow() {
     this.run.riskWindowSnapshot = this.getRiskWindow();
     return this.run.riskWindowSnapshot;
@@ -156,6 +165,7 @@ export class GameState {
     return this.roundCount;
   }
 
+  // Applies one rewarded-ad choice to the very next run only.
   applyRewardChoice(choiceId) {
     if (choiceId === "money") {
       this.nextRunBonus.money += 20;
@@ -172,6 +182,7 @@ export class GameState {
     return "No reward applied";
   }
 
+  // Consumes one Fake Papers charge if available.
   useFakePapersCharge() {
     if (this.run.fakePapersCharges <= 0) {
       return false;
@@ -184,6 +195,7 @@ export class GameState {
     return true;
   }
 
+  // Deterministic inspection resolution order defined by game rules.
   resolveInspection() {
     const run = this.run;
     run.inspectionCount += 1;
@@ -251,6 +263,7 @@ export class GameState {
     return details;
   }
 
+  // Converts item confiscation into temporary value coverage for envelope logic.
   confiscateForCoverage(requiredValue, outList) {
     let covered = 0;
 
@@ -301,6 +314,8 @@ export class GameState {
       confiscatedItems: [...run.confiscatedItems],
       riverTimeSpent: run.riverTimeSpent,
       escapeTimeSpent: run.escapeTimeSpent,
+      boostUseTime: run.boostUseTime,
+      boostUseCount: run.boostUseCount,
     };
   }
 }
