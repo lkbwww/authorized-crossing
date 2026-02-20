@@ -42,6 +42,8 @@ test("shouldClaimRewardLine requires line crossing, lane match, and forward move
 test("resolveRewardLineBonus adds risk bonus only on controlled lane", () => {
   assert.equal(resolveRewardLineBonus(12, false), 12);
   assert.equal(resolveRewardLineBonus(12, true), 20);
+  assert.equal(resolveRewardLineBonus(12, true, 2), 24);
+  assert.equal(resolveRewardLineBonus(12, false, 9), 18);
 });
 
 test("isLaneControlViolated requires both lane and zone overlap", () => {

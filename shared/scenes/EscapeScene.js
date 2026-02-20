@@ -73,6 +73,8 @@ export function createEscapeScene(Phaser, shared) {
       this.escapeStartY = 560;
       this.rewardLineEvent = null;
       this.rewardLineCooldown = 0;
+      this.rewardLineStreak = 0;
+      this.rewardLineLastClaimAt = -99;
       this.laneControlEvent = null;
       this.laneControlCooldown = 0;
       this.laneControlPenaltyTick = 0;
@@ -99,6 +101,8 @@ export function createEscapeScene(Phaser, shared) {
       this.escapeStartY = 560;
       this.rewardLineEvent = null;
       this.rewardLineCooldown = randomInt(4, 7);
+      this.rewardLineStreak = 0;
+      this.rewardLineLastClaimAt = -99;
       this.laneControlEvent = null;
       this.laneControlCooldown = randomInt(5, 8);
       this.laneControlPenaltyTick = 0;
@@ -601,7 +605,9 @@ export function createEscapeScene(Phaser, shared) {
         this.player.y - 90
       );
       const lineW = LANE_HALF_WIDTH * 2 - 36;
-      const bonus = resolveRewardLineBonus(REWARD_LINE_BONUS, useRiskLane);
+      const projectedStreak =
+        this.elapsed - this.rewardLineLastClaimAt <= 7 ? this.rewardLineStreak + 1 : 1;
+      const bonus = resolveRewardLineBonus(REWARD_LINE_BONUS, useRiskLane, projectedStreak - 1);
 
       const line = this.add
         .rectangle(laneCenter, y, lineW, 14, 0x7a7b4f, 0.94)
@@ -785,8 +791,15 @@ export function createEscapeScene(Phaser, shared) {
       });
 
       if (claimed) {
+        if (this.elapsed - this.rewardLineLastClaimAt <= 7) {
+          this.rewardLineStreak += 1;
+        } else {
+          this.rewardLineStreak = 1;
+        }
+        this.rewardLineLastClaimAt = this.elapsed;
         this.state.setMoney(this.state.getMoney() + event.bonus);
-        this.hud.showToast(`Bonus +${event.bonus}`, UI_THEME.success, 950);
+        const streakTag = this.rewardLineStreak > 1 ? `  x${this.rewardLineStreak}` : "";
+        this.hud.showToast(`Bonus +${event.bonus}${streakTag}`, UI_THEME.success, 950);
         this.clearRewardLineEvent(true);
       }
     }
@@ -800,6 +813,9 @@ export function createEscapeScene(Phaser, shared) {
       this.rewardLineEvent.line.destroy();
       this.rewardLineEvent.label.destroy();
       this.rewardLineEvent = null;
+      if (!collected && this.elapsed - this.rewardLineLastClaimAt > 7) {
+        this.rewardLineStreak = 0;
+      }
       this.rewardLineCooldown = collected ? randomInt(7, 11) : randomInt(5, 9);
     }
 
@@ -1034,6 +1050,7 @@ export function createEscapeScene(Phaser, shared) {
             `carSpawnInterval ${this.carSpawnInterval.toFixed(2)}`,
             `rewardLane ${rewardLane}`,
             `rewardCd ${Math.max(0, this.rewardLineCooldown).toFixed(1)}`,
+            `rewardStreak ${this.rewardLineStreak}`,
             `controlLane ${controlLane}`,
             `controlCd ${Math.max(0, this.laneControlCooldown).toFixed(1)}`,
             `townY ${this.townY.toFixed(0)}`,

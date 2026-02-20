@@ -6,6 +6,7 @@ export const REWARD_LINE_BONUS = 12;
 export const LANE_CONTROL_REWARD_BONUS = 8;
 export const LANE_CONTROL_SPEED_MULT = 0.62;
 export const NEAR_MISS_BONUS = 3;
+export const REWARD_STREAK_STEP_BONUS = 2;
 
 export function didCrossLine(prevY, currentY, lineY) {
   return prevY > lineY && currentY <= lineY;
@@ -33,8 +34,10 @@ export function shouldClaimRewardLine({
   return isInsideLane(playerX, laneMinX, laneMaxX, 8);
 }
 
-export function resolveRewardLineBonus(baseBonus, isLaneControlRisk) {
-  return isLaneControlRisk ? baseBonus + LANE_CONTROL_REWARD_BONUS : baseBonus;
+export function resolveRewardLineBonus(baseBonus, isLaneControlRisk, streakCount = 0) {
+  const riskBonus = isLaneControlRisk ? LANE_CONTROL_REWARD_BONUS : 0;
+  const streakBonus = Math.min(3, Math.max(0, streakCount)) * REWARD_STREAK_STEP_BONUS;
+  return baseBonus + riskBonus + streakBonus;
 }
 
 export function isLaneControlViolated({
