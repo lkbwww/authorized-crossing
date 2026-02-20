@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   applyLaneControlSpeed,
   didCrossLine,
+  getLaneControlPenalty,
   isInsideLane,
   isLaneControlViolated,
   isNearMiss,
@@ -63,6 +64,13 @@ test("isLaneControlViolated requires both lane and zone overlap", () => {
 test("applyLaneControlSpeed slows speed only while violating lane control zone", () => {
   assert.equal(applyLaneControlSpeed(200, false), 200);
   assert.equal(applyLaneControlSpeed(200, true), 124);
+});
+
+test("getLaneControlPenalty scales up to cap", () => {
+  assert.equal(getLaneControlPenalty(0), 2);
+  assert.equal(getLaneControlPenalty(1), 3);
+  assert.equal(getLaneControlPenalty(2), 4);
+  assert.equal(getLaneControlPenalty(7), 4);
 });
 
 test("isNearMiss checks tight window around the player", () => {

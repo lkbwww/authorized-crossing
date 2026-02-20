@@ -23,6 +23,7 @@ import {
   NEAR_MISS_BONUS,
   REWARD_LINE_BONUS,
   applyLaneControlSpeed,
+  getLaneControlPenalty,
   isLaneControlViolated,
   isNearMiss,
   resolveRewardLineBonus,
@@ -80,6 +81,7 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlPreview = null;
       this.laneControlNextLane = null;
       this.laneControlPenaltyTick = 0;
+      this.laneControlViolationLevel = 0;
       this.laneControlToastCooldown = 0;
       this.nearMissToastCooldown = 0;
       this.nearMissCount = 0;
@@ -110,6 +112,7 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlPreview = null;
       this.laneControlNextLane = null;
       this.laneControlPenaltyTick = 0;
+      this.laneControlViolationLevel = 0;
       this.laneControlToastCooldown = 0;
       this.nearMissToastCooldown = 0;
       this.nearMissCount = 0;
@@ -771,6 +774,7 @@ export function createEscapeScene(Phaser, shared) {
 
       if (!this.isPlayerViolatingLaneControl()) {
         this.laneControlPenaltyTick = Math.max(0, this.laneControlPenaltyTick - dt * 0.3);
+        this.laneControlViolationLevel = Math.max(0, this.laneControlViolationLevel - dt * 0.75);
         return;
       }
 
@@ -782,8 +786,10 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlPenaltyTick += dt;
       while (this.laneControlPenaltyTick >= 0.95) {
         this.laneControlPenaltyTick -= 0.95;
-        const nextMoney = Math.max(0, this.state.getMoney() - 2);
+        const penalty = getLaneControlPenalty(Math.floor(this.laneControlViolationLevel));
+        const nextMoney = Math.max(0, this.state.getMoney() - penalty);
         this.state.setMoney(nextMoney);
+        this.laneControlViolationLevel += 1;
       }
     }
 
@@ -871,6 +877,7 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlEvent.label.destroy();
       this.laneControlEvent = null;
       this.laneControlPenaltyTick = 0;
+      this.laneControlViolationLevel = 0;
       this.laneControlCooldown = randomInt(5, 9);
     }
 
@@ -883,6 +890,7 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlEvent.markerBottom.destroy();
       this.laneControlEvent.label.destroy();
       this.laneControlEvent = null;
+      this.laneControlViolationLevel = 0;
     }
 
     destroyLaneControlPreview() {
@@ -1092,6 +1100,7 @@ export function createEscapeScene(Phaser, shared) {
             `rewardStreak ${this.rewardLineStreak}`,
             `controlLane ${controlLane}`,
             `controlCd ${Math.max(0, this.laneControlCooldown).toFixed(1)}`,
+            `controlLvl ${this.laneControlViolationLevel.toFixed(1)}`,
             `townY ${this.townY.toFixed(0)}`,
           ].join("  |  ")
         );
