@@ -19,7 +19,13 @@ import {
 import { MotionAudioController } from "../audio/motionAudio.js";
 import { TrafficAudioController } from "../audio/trafficAudio.js";
 import { ensurePixelTextures } from "../assets/pixelTextures.js";
-import { REWARD_LINE_BONUS, shouldClaimRewardLine } from "../escapeEvents.js";
+import {
+  REWARD_LINE_BONUS,
+  applyLaneControlSpeed,
+  isLaneControlViolated,
+  resolveRewardLineBonus,
+  shouldClaimRewardLine,
+} from "../escapeEvents.js";
 import { HUD } from "../ui/HUD.js";
 import { clamp, randomInt } from "../utils.js";
 
@@ -65,6 +71,10 @@ export function createEscapeScene(Phaser, shared) {
       this.escapeStartY = 560;
       this.rewardLineEvent = null;
       this.rewardLineCooldown = 0;
+      this.laneControlEvent = null;
+      this.laneControlCooldown = 0;
+      this.laneControlPenaltyTick = 0;
+      this.laneControlToastCooldown = 0;
     }
 
     init() {
@@ -85,6 +95,10 @@ export function createEscapeScene(Phaser, shared) {
       this.escapeStartY = 560;
       this.rewardLineEvent = null;
       this.rewardLineCooldown = randomInt(4, 7);
+      this.laneControlEvent = null;
+      this.laneControlCooldown = randomInt(5, 8);
+      this.laneControlPenaltyTick = 0;
+      this.laneControlToastCooldown = 0;
     }
 
     create() {
@@ -120,6 +134,7 @@ export function createEscapeScene(Phaser, shared) {
         this.cars.forEach((car) => this.destroyCar(car));
         this.cars = [];
         this.destroyRewardLineEvent();
+        this.destroyLaneControlEvent();
         this.destroyFootprints();
         if (this.motionAudio) {
           this.motionAudio.destroy();
@@ -371,6 +386,7 @@ export function createEscapeScene(Phaser, shared) {
       this.forwardSpeed = this.computeForwardSpeed();
       const prevPlayerY = this.player.y;
       this.updatePlayer(dt);
+      this.updateLaneControlEvent(dt);
       this.updateRewardLineEvent(dt, prevPlayerY);
       this.updateFootprints(dt);
       this.spawnCars(dt);
@@ -414,18 +430,20 @@ export function createEscapeScene(Phaser, shared) {
       const input = (this.keyRight.isDown ? 1 : 0) - (this.keyLeft.isDown ? 1 : 0);
       const moveForward = this.keyUp.isDown;
       const targetX = input * LATERAL_SPEED;
-      let forwardDelta = moveForward ? this.forwardSpeed * dt : 0;
+      const isControlViolatedNow = this.isPlayerViolatingLaneControl();
+      const effectiveForwardSpeed = applyLaneControlSpeed(this.forwardSpeed, isControlViolatedNow);
+      let forwardDelta = moveForward ? effectiveForwardSpeed * dt : 0;
 
       if (this.seasonKey === "WINTER") {
         const response = this.hasBoat ? 0.04 : 0.02;
         this.winterMomentumX = Phaser.Math.Linear(this.winterMomentumX, targetX, response);
         this.player.body.velocity.x = this.winterMomentumX;
-        const targetForward = moveForward ? this.forwardSpeed : 0;
+        const targetForward = moveForward ? effectiveForwardSpeed : 0;
         this.winterMomentumY = Phaser.Math.Linear(this.winterMomentumY, targetForward, response);
         forwardDelta = this.winterMomentumY * dt;
       } else {
         this.winterMomentumX = targetX;
-        this.winterMomentumY = moveForward ? this.forwardSpeed : 0;
+        this.winterMomentumY = moveForward ? effectiveForwardSpeed : 0;
         this.player.body.velocity.x = targetX;
       }
 
@@ -561,7 +579,13 @@ export function createEscapeScene(Phaser, shared) {
         return;
       }
 
-      const lane = Math.random() < 0.5 ? "left" : "right";
+      const activeControl = this.laneControlEvent;
+      const canUseRiskLane =
+        activeControl &&
+        activeControl.expiresAt - this.elapsed > 1.2 &&
+        activeControl.y < this.player.y - 70;
+      const useRiskLane = canUseRiskLane && Math.random() < 0.68;
+      const lane = useRiskLane ? activeControl.lane : Math.random() < 0.5 ? "left" : "right";
       const laneCenter = lane === "left" ? LEFT_LANE_CENTER : RIGHT_LANE_CENTER;
       const laneMinX = laneCenter - LANE_HALF_WIDTH;
       const laneMaxX = laneCenter + LANE_HALF_WIDTH;
@@ -571,13 +595,14 @@ export function createEscapeScene(Phaser, shared) {
         this.player.y - 90
       );
       const lineW = LANE_HALF_WIDTH * 2 - 36;
+      const bonus = resolveRewardLineBonus(REWARD_LINE_BONUS, useRiskLane);
 
       const line = this.add
         .rectangle(laneCenter, y, lineW, 14, 0x7a7b4f, 0.94)
         .setDepth(1585)
         .setStrokeStyle(2, 0xd4db89, 1);
       const label = this.add
-        .text(laneCenter, y - 22, `BONUS +${REWARD_LINE_BONUS}`, {
+        .text(laneCenter, y - 22, `BONUS +${bonus}`, {
           fontFamily: "'Arial Black', Impact, sans-serif",
           fontStyle: "bold",
           fontSize: "13px",
@@ -593,16 +618,130 @@ export function createEscapeScene(Phaser, shared) {
         laneMinX,
         laneMaxX,
         y,
+        bonus,
         line,
         label,
         pulse: 0,
         expiresAt: this.elapsed + 6.5,
       };
       this.hud.showToast(
-        `${lane.toUpperCase()} lane bonus line`,
+        useRiskLane
+          ? `${lane.toUpperCase()} lane bonus (risk+)`
+          : `${lane.toUpperCase()} lane bonus line`,
         UI_THEME.warn,
         1050
       );
+    }
+
+    spawnLaneControlEvent() {
+      if (this.laneControlEvent || this.isEnding) {
+        return;
+      }
+
+      const lane = Math.random() < 0.5 ? "left" : "right";
+      const laneCenter = lane === "left" ? LEFT_LANE_CENTER : RIGHT_LANE_CENTER;
+      const laneMinX = laneCenter - LANE_HALF_WIDTH;
+      const laneMaxX = laneCenter + LANE_HALF_WIDTH;
+      const y = clamp(
+        this.cameras.main.scrollY - randomInt(260, 420),
+        WORLD_TOP + 130,
+        this.player.y - 120
+      );
+
+      const band = this.add
+        .rectangle(laneCenter, y, LANE_HALF_WIDTH * 2 - 20, 96, 0x803628, 0.24)
+        .setDepth(1582)
+        .setStrokeStyle(2, 0xe4896d, 0.85);
+      const markerTop = this.add.rectangle(laneCenter, y - 36, LANE_HALF_WIDTH * 2 - 30, 8, 0xffca7f, 0.9).setDepth(1583);
+      const markerBottom = this.add
+        .rectangle(laneCenter, y + 36, LANE_HALF_WIDTH * 2 - 30, 8, 0xffca7f, 0.9)
+        .setDepth(1583);
+      const label = this.add
+        .text(laneCenter, y - 62, "LANE CONTROL", {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontStyle: "bold",
+          fontSize: "13px",
+          color: "#FFD9BA",
+          backgroundColor: "#2B1410",
+          padding: { x: 5, y: 1 },
+        })
+        .setOrigin(0.5)
+        .setDepth(1584);
+
+      this.laneControlEvent = {
+        lane,
+        laneMinX,
+        laneMaxX,
+        y,
+        zoneHalfHeight: 48,
+        band,
+        markerTop,
+        markerBottom,
+        label,
+        pulse: 0,
+        expiresAt: this.elapsed + 7.2,
+      };
+      this.hud.showToast(`${lane.toUpperCase()} lane control active`, UI_THEME.danger, 1100);
+    }
+
+    isPlayerViolatingLaneControl() {
+      if (!this.laneControlEvent) {
+        return false;
+      }
+      return isLaneControlViolated({
+        playerX: this.player.x,
+        playerY: this.player.y,
+        laneMinX: this.laneControlEvent.laneMinX,
+        laneMaxX: this.laneControlEvent.laneMaxX,
+        zoneY: this.laneControlEvent.y,
+        zoneHalfHeight: this.laneControlEvent.zoneHalfHeight,
+      });
+    }
+
+    updateLaneControlEvent(dt) {
+      this.laneControlToastCooldown = Math.max(0, this.laneControlToastCooldown - dt);
+
+      if (!this.laneControlEvent) {
+        this.laneControlPenaltyTick = 0;
+        this.laneControlCooldown -= dt;
+        if (this.laneControlCooldown <= 0) {
+          this.spawnLaneControlEvent();
+        }
+        return;
+      }
+
+      const event = this.laneControlEvent;
+      event.pulse += dt * 8;
+      const pulseAlpha = 0.3 + Math.sin(event.pulse) * 0.13;
+      const markerAlpha = 0.76 + Math.sin(event.pulse * 1.1) * 0.2;
+      event.band.setAlpha(clamp(pulseAlpha, 0.16, 0.55));
+      event.markerTop.setAlpha(clamp(markerAlpha, 0.42, 1));
+      event.markerBottom.setAlpha(clamp(markerAlpha, 0.42, 1));
+
+      const hasExpired =
+        this.elapsed >= event.expiresAt ||
+        event.y > this.cameras.main.scrollY + INTERNAL_HEIGHT + 170;
+      if (hasExpired) {
+        this.clearLaneControlEvent();
+        return;
+      }
+
+      if (!this.isPlayerViolatingLaneControl()) {
+        this.laneControlPenaltyTick = Math.max(0, this.laneControlPenaltyTick - dt * 0.3);
+        return;
+      }
+
+      if (this.laneControlToastCooldown <= 0) {
+        this.hud.showToast("Lane control zone: move out", UI_THEME.danger, 650);
+        this.laneControlToastCooldown = 1.6;
+      }
+
+      this.laneControlPenaltyTick += dt;
+      while (this.laneControlPenaltyTick >= 0.95) {
+        this.laneControlPenaltyTick -= 0.95;
+        const nextMoney = Math.max(0, this.state.getMoney() - 2);
+        this.state.setMoney(nextMoney);
+      }
     }
 
     updateRewardLineEvent(dt, prevPlayerY) {
@@ -640,8 +779,8 @@ export function createEscapeScene(Phaser, shared) {
       });
 
       if (claimed) {
-        this.state.setMoney(this.state.getMoney() + REWARD_LINE_BONUS);
-        this.hud.showToast(`Bonus +${REWARD_LINE_BONUS}`, UI_THEME.success, 950);
+        this.state.setMoney(this.state.getMoney() + event.bonus);
+        this.hud.showToast(`Bonus +${event.bonus}`, UI_THEME.success, 950);
         this.clearRewardLineEvent(true);
       }
     }
@@ -665,6 +804,32 @@ export function createEscapeScene(Phaser, shared) {
       this.rewardLineEvent.line.destroy();
       this.rewardLineEvent.label.destroy();
       this.rewardLineEvent = null;
+    }
+
+    clearLaneControlEvent() {
+      if (!this.laneControlEvent) {
+        this.laneControlCooldown = randomInt(7, 11);
+        return;
+      }
+
+      this.laneControlEvent.band.destroy();
+      this.laneControlEvent.markerTop.destroy();
+      this.laneControlEvent.markerBottom.destroy();
+      this.laneControlEvent.label.destroy();
+      this.laneControlEvent = null;
+      this.laneControlPenaltyTick = 0;
+      this.laneControlCooldown = randomInt(5, 9);
+    }
+
+    destroyLaneControlEvent() {
+      if (!this.laneControlEvent) {
+        return;
+      }
+      this.laneControlEvent.band.destroy();
+      this.laneControlEvent.markerTop.destroy();
+      this.laneControlEvent.markerBottom.destroy();
+      this.laneControlEvent.label.destroy();
+      this.laneControlEvent = null;
     }
 
     updateCars(dt) {
@@ -831,6 +996,7 @@ export function createEscapeScene(Phaser, shared) {
         const downCount = this.cars.filter((car) => car.laneDirection > 0).length;
         const upCount = this.cars.filter((car) => car.laneDirection < 0).length;
         const rewardLane = this.rewardLineEvent ? this.rewardLineEvent.lane : "none";
+        const controlLane = this.laneControlEvent ? this.laneControlEvent.lane : "none";
         this.f2Text.setText(
           [
             "F2 gameplay",
@@ -839,6 +1005,8 @@ export function createEscapeScene(Phaser, shared) {
             `carSpawnInterval ${this.carSpawnInterval.toFixed(2)}`,
             `rewardLane ${rewardLane}`,
             `rewardCd ${Math.max(0, this.rewardLineCooldown).toFixed(1)}`,
+            `controlLane ${controlLane}`,
+            `controlCd ${Math.max(0, this.laneControlCooldown).toFixed(1)}`,
             `townY ${this.townY.toFixed(0)}`,
           ].join("  |  ")
         );
