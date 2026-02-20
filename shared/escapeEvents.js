@@ -8,6 +8,7 @@ export const LANE_CONTROL_SPEED_MULT = 0.62;
 export const NEAR_MISS_BONUS = 3;
 export const REWARD_STREAK_STEP_BONUS = 2;
 export const LANE_CONTROL_BASE_PENALTY = 2;
+export const TOWN_CLUTCH_BONUS = 10;
 
 export function didCrossLine(prevY, currentY, lineY) {
   return prevY > lineY && currentY <= lineY;
@@ -98,4 +99,14 @@ export function getAdaptiveTrafficTargets({ elapsed, money, progress }) {
     interval,
     desiredCount: Math.min(10, desiredCount),
   };
+}
+
+export function resolveTownArrivalBonus(secondsLeft) {
+  if (secondsLeft <= 3) {
+    return TOWN_CLUTCH_BONUS;
+  }
+  if (secondsLeft <= 7) {
+    return Math.floor(TOWN_CLUTCH_BONUS / 2);
+  }
+  return 0;
 }

@@ -9,6 +9,7 @@ import {
   isInsideLane,
   isLaneControlViolated,
   isNearMiss,
+  resolveTownArrivalBonus,
   resolveRewardLineBonus,
   shouldClaimRewardLine,
 } from "../escapeEvents.js";
@@ -94,4 +95,10 @@ test("getAdaptiveTrafficTargets increases pressure for rich or late-run players"
   const richLate = getAdaptiveTrafficTargets({ elapsed: 32, money: 180, progress: 0.8 });
   assert.equal(richLate.desiredCount, 9);
   assert.equal(richLate.interval, 0.77);
+});
+
+test("resolveTownArrivalBonus rewards clutch finishes only", () => {
+  assert.equal(resolveTownArrivalBonus(12), 0);
+  assert.equal(resolveTownArrivalBonus(6), 5);
+  assert.equal(resolveTownArrivalBonus(2.5), 10);
 });

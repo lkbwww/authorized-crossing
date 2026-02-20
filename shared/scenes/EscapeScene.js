@@ -27,6 +27,7 @@ import {
   getLaneControlPenalty,
   isLaneControlViolated,
   isNearMiss,
+  resolveTownArrivalBonus,
   resolveRewardLineBonus,
   shouldClaimRewardLine,
 } from "../escapeEvents.js";
@@ -996,6 +997,12 @@ export function createEscapeScene(Phaser, shared) {
       this.isEnding = true;
       this.player.body.setVelocity(0, 0);
       this.hud.showToast("Town reached.", UI_THEME.success, 1000);
+      const secLeft = Math.max(0, ESCAPE_STEALTH_DURATION - this.elapsed);
+      const clutchBonus = resolveTownArrivalBonus(secLeft);
+      if (clutchBonus > 0) {
+        this.state.setMoney(this.state.getMoney() + clutchBonus);
+        this.hud.showToast(`Clutch bonus +${clutchBonus}`, UI_THEME.success, 1000);
+      }
       this.eventText.setText("TOWN").setVisible(true);
 
       // Success condition is destination reach, not timeout.
