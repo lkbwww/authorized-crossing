@@ -175,9 +175,11 @@ export class HUD {
     const boostColor = data.boostActive ? 0xe0a84a : 0x7a7b4f;
     const boostUseTime = data.boostUseTime ?? 0;
     const boostUseCount = data.boostUseCount ?? 0;
+    const boostCd = Math.max(0, data.boostCooldownLeft ?? 0);
+    const cooldownText = boostCd > 0 ? `  CD ${boostCd.toFixed(1)}s` : "";
     this.exposureLabel.setVisible(true);
     this.exposureLabel.setText(
-      `BOOST ${Math.round((data.boostCharge ?? 0))}%${data.boostActive ? " ACTIVE" : ""}  ${boostUseTime.toFixed(1)}s x${boostUseCount}`
+      `BOOST ${Math.round((data.boostCharge ?? 0))}%${data.boostActive ? " ACTIVE" : ""}${cooldownText}  ${boostUseTime.toFixed(1)}s x${boostUseCount}`
     );
     drawBar(this.exposureBar, 980, 34, 270, 18, boostRatio, boostColor, 0x1a120d);
 

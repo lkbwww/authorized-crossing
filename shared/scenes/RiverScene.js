@@ -1512,6 +1512,7 @@ export function createRiverScene(Phaser, shared) {
         showBreath: this.seasonKey === "SUMMER",
         boostCharge: this.boostCharge,
         boostActive: this.boostActive,
+        boostCooldownLeft: Math.max(0, this.boostCooldownUntil - this.elapsed),
         boostUseTime: this.boostUseTime,
         boostUseCount: this.boostUseCount,
         itemsOwned,
