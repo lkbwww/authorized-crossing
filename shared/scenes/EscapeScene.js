@@ -1,3 +1,7 @@
+/**
+ * Post-river escape gameplay scene.
+ * Player avoids traffic lanes and must reach town before timeout.
+ */
 import {
   BASE_FORWARD_SPEED,
   ENDINGS,
@@ -15,6 +19,7 @@ import {
 import { MotionAudioController } from "../audio/motionAudio.js";
 import { TrafficAudioController } from "../audio/trafficAudio.js";
 import { ensurePixelTextures } from "../assets/pixelTextures.js";
+import { REWARD_LINE_BONUS, shouldClaimRewardLine } from "../escapeEvents.js";
 import { HUD } from "../ui/HUD.js";
 import { clamp, randomInt } from "../utils.js";
 
@@ -58,6 +63,8 @@ export function createEscapeScene(Phaser, shared) {
       this.townY = TOWN_GOAL_Y;
       this.townReached = false;
       this.escapeStartY = 560;
+      this.rewardLineEvent = null;
+      this.rewardLineCooldown = 0;
     }
 
     init() {
@@ -76,9 +83,12 @@ export function createEscapeScene(Phaser, shared) {
       this.townReached = false;
       this.townY = TOWN_GOAL_Y;
       this.escapeStartY = 560;
+      this.rewardLineEvent = null;
+      this.rewardLineCooldown = randomInt(4, 7);
     }
 
     create() {
+      // Capture run snapshot and initialize scene-local runtime systems.
       this.state = shared.gameState;
       this.run = this.state.run;
       this.seasonKey = this.state.getSeason();
@@ -109,6 +119,7 @@ export function createEscapeScene(Phaser, shared) {
         }
         this.cars.forEach((car) => this.destroyCar(car));
         this.cars = [];
+        this.destroyRewardLineEvent();
         this.destroyFootprints();
         if (this.motionAudio) {
           this.motionAudio.destroy();
@@ -140,6 +151,7 @@ export function createEscapeScene(Phaser, shared) {
     }
 
     createTownGoal() {
+      // Visual destination gate; reaching this Y ends run with success.
       this.townBannerBase = this.add.rectangle(640, this.townY, 980, 120, 0x2c2117, 0.95).setDepth(-76).setStrokeStyle(4, 0xb08d57, 1);
       this.townRoadGate = this.add.rectangle(640, this.townY + 50, 420, 44, 0x503826, 1).setDepth(-75).setStrokeStyle(2, 0xd6b57d, 1);
       this.townBuildingL = this.add.rectangle(270, this.townY - 20, 210, 164, 0x4c3323, 1).setDepth(-75).setStrokeStyle(2, 0x7a563c, 1);
@@ -274,6 +286,8 @@ export function createEscapeScene(Phaser, shared) {
       }
 
       const lane = this.pickLane(forcedDirection);
+      // Lane direction rule:
+      // left lane flows downward (+Y), right lane flows upward (-Y).
       const laneDirection = lane === "left" ? 1 : -1;
       const laneCenter = lane === "left" ? LEFT_LANE_CENTER : RIGHT_LANE_CENTER;
       const laneMinX = laneCenter - LANE_HALF_WIDTH;
@@ -350,11 +364,14 @@ export function createEscapeScene(Phaser, shared) {
       }
 
       const dt = deltaMs / 1000;
+      // Main frame loop for escape phase.
       this.elapsed += dt;
       this.run.escapeTimeSpent = this.elapsed;
 
       this.forwardSpeed = this.computeForwardSpeed();
+      const prevPlayerY = this.player.y;
       this.updatePlayer(dt);
+      this.updateRewardLineEvent(dt, prevPlayerY);
       this.updateFootprints(dt);
       this.spawnCars(dt);
       this.updateCars(dt);
@@ -413,6 +430,7 @@ export function createEscapeScene(Phaser, shared) {
       }
 
       this.player.body.velocity.y = 0;
+      // As in RiverScene, forward movement is expressed as camera scroll.
       this.cameras.main.scrollY = clamp(this.cameras.main.scrollY - forwardDelta, WORLD_TOP, 0);
       this.player.y = this.cameras.main.scrollY + this.playerAnchorY;
       this.player.x = clamp(this.player.x, ROAD_LEFT + 24, ROAD_RIGHT - 24);
@@ -507,6 +525,7 @@ export function createEscapeScene(Phaser, shared) {
     }
 
     spawnCars(dt) {
+      // Keep traffic density high while preserving both lane directions.
       if (this.elapsed < 15) {
         this.carSpawnInterval = 1.05;
       } else if (this.elapsed < 30) {
@@ -537,7 +556,119 @@ export function createEscapeScene(Phaser, shared) {
       }
     }
 
+    spawnRewardLineEvent() {
+      if (this.rewardLineEvent || this.isEnding) {
+        return;
+      }
+
+      const lane = Math.random() < 0.5 ? "left" : "right";
+      const laneCenter = lane === "left" ? LEFT_LANE_CENTER : RIGHT_LANE_CENTER;
+      const laneMinX = laneCenter - LANE_HALF_WIDTH;
+      const laneMaxX = laneCenter + LANE_HALF_WIDTH;
+      const y = clamp(
+        this.cameras.main.scrollY - randomInt(240, 420),
+        WORLD_TOP + 120,
+        this.player.y - 90
+      );
+      const lineW = LANE_HALF_WIDTH * 2 - 36;
+
+      const line = this.add
+        .rectangle(laneCenter, y, lineW, 14, 0x7a7b4f, 0.94)
+        .setDepth(1585)
+        .setStrokeStyle(2, 0xd4db89, 1);
+      const label = this.add
+        .text(laneCenter, y - 22, `BONUS +${REWARD_LINE_BONUS}`, {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontStyle: "bold",
+          fontSize: "13px",
+          color: "#E8ECA6",
+          backgroundColor: "#1A120D",
+          padding: { x: 4, y: 1 },
+        })
+        .setOrigin(0.5)
+        .setDepth(1586);
+
+      this.rewardLineEvent = {
+        lane,
+        laneMinX,
+        laneMaxX,
+        y,
+        line,
+        label,
+        pulse: 0,
+        expiresAt: this.elapsed + 6.5,
+      };
+      this.hud.showToast(
+        `${lane.toUpperCase()} lane bonus line`,
+        UI_THEME.warn,
+        1050
+      );
+    }
+
+    updateRewardLineEvent(dt, prevPlayerY) {
+      if (!this.rewardLineEvent) {
+        this.rewardLineCooldown -= dt;
+        if (this.rewardLineCooldown <= 0) {
+          this.spawnRewardLineEvent();
+        }
+        return;
+      }
+
+      const event = this.rewardLineEvent;
+      event.pulse += dt * 9;
+      const alpha = 0.55 + Math.sin(event.pulse) * 0.25;
+      event.line.setAlpha(alpha);
+      event.label.setAlpha(clamp(alpha + 0.2, 0.45, 1));
+
+      const hasExpired =
+        this.elapsed >= event.expiresAt ||
+        event.y > this.cameras.main.scrollY + INTERNAL_HEIGHT + 160;
+      if (hasExpired) {
+        this.clearRewardLineEvent(false);
+        return;
+      }
+
+      const forwardDistance = prevPlayerY - this.player.y;
+      const claimed = shouldClaimRewardLine({
+        prevY: prevPlayerY,
+        currentY: this.player.y,
+        lineY: event.y,
+        playerX: this.player.x,
+        laneMinX: event.laneMinX,
+        laneMaxX: event.laneMaxX,
+        isAdvancing: forwardDistance > 1.5,
+      });
+
+      if (claimed) {
+        this.state.setMoney(this.state.getMoney() + REWARD_LINE_BONUS);
+        this.hud.showToast(`Bonus +${REWARD_LINE_BONUS}`, UI_THEME.success, 950);
+        this.clearRewardLineEvent(true);
+      }
+    }
+
+    clearRewardLineEvent(collected) {
+      if (!this.rewardLineEvent) {
+        this.rewardLineCooldown = randomInt(8, 12);
+        return;
+      }
+
+      this.rewardLineEvent.line.destroy();
+      this.rewardLineEvent.label.destroy();
+      this.rewardLineEvent = null;
+      this.rewardLineCooldown = collected ? randomInt(7, 11) : randomInt(5, 9);
+    }
+
+    destroyRewardLineEvent() {
+      if (!this.rewardLineEvent) {
+        return;
+      }
+      this.rewardLineEvent.line.destroy();
+      this.rewardLineEvent.label.destroy();
+      this.rewardLineEvent = null;
+    }
+
     updateCars(dt) {
+      // Cars move along Y lanes with slight X drift for realism.
       const topCull = this.cameras.main.scrollY - 280;
       const bottomCull = this.cameras.main.scrollY + INTERNAL_HEIGHT + 280;
 
@@ -610,6 +741,7 @@ export function createEscapeScene(Phaser, shared) {
       this.hud.showToast("Town reached.", UI_THEME.success, 1000);
       this.eventText.setText("TOWN").setVisible(true);
 
+      // Success condition is destination reach, not timeout.
       this.time.delayedCall(260, () => {
         this.finishRun({
           endingId: "CARGO",
@@ -621,6 +753,7 @@ export function createEscapeScene(Phaser, shared) {
     }
 
     triggerTimeoutArrest() {
+      // Time expiry is a failure branch.
       if (this.isEnding) {
         return;
       }
@@ -697,12 +830,15 @@ export function createEscapeScene(Phaser, shared) {
       if (this.debugGameOn) {
         const downCount = this.cars.filter((car) => car.laneDirection > 0).length;
         const upCount = this.cars.filter((car) => car.laneDirection < 0).length;
+        const rewardLane = this.rewardLineEvent ? this.rewardLineEvent.lane : "none";
         this.f2Text.setText(
           [
             "F2 gameplay",
             `downLane ${downCount}`,
             `upLane ${upCount}`,
             `carSpawnInterval ${this.carSpawnInterval.toFixed(2)}`,
+            `rewardLane ${rewardLane}`,
+            `rewardCd ${Math.max(0, this.rewardLineCooldown).toFixed(1)}`,
             `townY ${this.townY.toFixed(0)}`,
           ].join("  |  ")
         );
