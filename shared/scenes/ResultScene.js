@@ -3,6 +3,7 @@
  * Handles summary, retry flow, fake interstitial/rewarded ads, and rewards.
  */
 import { REWARD_CHOICES } from "../constants.js";
+import { buildFailureLearning } from "../failureLearning.js";
 import { isFailureEnding } from "../utils.js";
 import { createButton } from "../ui/common.js";
 
@@ -75,6 +76,18 @@ export function createResultScene(Phaser, shared) {
           wordWrap: { width: 1080 },
         })
         .setOrigin(0.5);
+
+      this.learningText = this.add
+        .text(640, 430, "", {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontStyle: "bold",
+          fontSize: "18px",
+          color: "#edd3b5",
+          align: "center",
+          wordWrap: { width: 1080 },
+        })
+        .setOrigin(0.5)
+        .setVisible(false);
 
       this.retryButton = createButton(this, 640, 620, 320, 66, "Retry (R)", () => {
         this.retryToShop();
@@ -167,8 +180,11 @@ export function createResultScene(Phaser, shared) {
       this.rewardButton.container.setVisible(isFailure && !this.rewardClaimed);
 
       if (isFailure && !this.rewardClaimed) {
+        const learning = buildFailureLearning(this.resultData, summary);
+        this.learningText.setText([learning.reason, learning.action, learning.item].join("\n")).setVisible(true);
         this.feedbackText.setText("Failure run: optional rewarded training is available.");
       } else {
+        this.learningText.setVisible(false);
         this.feedbackText.setText("");
       }
     }
