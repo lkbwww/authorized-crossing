@@ -5,6 +5,7 @@
 export const REWARD_LINE_BONUS = 12;
 export const LANE_CONTROL_REWARD_BONUS = 8;
 export const LANE_CONTROL_SPEED_MULT = 0.62;
+export const NEAR_MISS_BONUS = 3;
 
 export function didCrossLine(prevY, currentY, lineY) {
   return prevY > lineY && currentY <= lineY;
@@ -54,4 +55,18 @@ export function applyLaneControlSpeed(baseForwardSpeed, isLaneControlViolatedNow
   return isLaneControlViolatedNow
     ? baseForwardSpeed * LANE_CONTROL_SPEED_MULT
     : baseForwardSpeed;
+}
+
+export function isNearMiss({
+  playerX,
+  playerY,
+  carX,
+  carY,
+  nearMissWidth = 74,
+  nearMissHeight = 120,
+}) {
+  return (
+    Math.abs(playerX - carX) <= nearMissWidth / 2 &&
+    Math.abs(playerY - carY) <= nearMissHeight / 2
+  );
 }

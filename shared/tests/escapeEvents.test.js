@@ -6,6 +6,7 @@ import {
   didCrossLine,
   isInsideLane,
   isLaneControlViolated,
+  isNearMiss,
   resolveRewardLineBonus,
   shouldClaimRewardLine,
 } from "../escapeEvents.js";
@@ -60,4 +61,16 @@ test("isLaneControlViolated requires both lane and zone overlap", () => {
 test("applyLaneControlSpeed slows speed only while violating lane control zone", () => {
   assert.equal(applyLaneControlSpeed(200, false), 200);
   assert.equal(applyLaneControlSpeed(200, true), 124);
+});
+
+test("isNearMiss checks tight window around the player", () => {
+  const base = {
+    playerX: 500,
+    playerY: 620,
+    carX: 516,
+    carY: 652,
+  };
+  assert.equal(isNearMiss(base), true);
+  assert.equal(isNearMiss({ ...base, carX: 560 }), false);
+  assert.equal(isNearMiss({ ...base, carY: 700 }), false);
 });

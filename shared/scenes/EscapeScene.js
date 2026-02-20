@@ -20,9 +20,11 @@ import { MotionAudioController } from "../audio/motionAudio.js";
 import { TrafficAudioController } from "../audio/trafficAudio.js";
 import { ensurePixelTextures } from "../assets/pixelTextures.js";
 import {
+  NEAR_MISS_BONUS,
   REWARD_LINE_BONUS,
   applyLaneControlSpeed,
   isLaneControlViolated,
+  isNearMiss,
   resolveRewardLineBonus,
   shouldClaimRewardLine,
 } from "../escapeEvents.js";
@@ -75,6 +77,8 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlCooldown = 0;
       this.laneControlPenaltyTick = 0;
       this.laneControlToastCooldown = 0;
+      this.nearMissToastCooldown = 0;
+      this.nearMissCount = 0;
     }
 
     init() {
@@ -99,6 +103,8 @@ export function createEscapeScene(Phaser, shared) {
       this.laneControlCooldown = randomInt(5, 8);
       this.laneControlPenaltyTick = 0;
       this.laneControlToastCooldown = 0;
+      this.nearMissToastCooldown = 0;
+      this.nearMissCount = 0;
     }
 
     create() {
@@ -836,6 +842,7 @@ export function createEscapeScene(Phaser, shared) {
       // Cars move along Y lanes with slight X drift for realism.
       const topCull = this.cameras.main.scrollY - 280;
       const bottomCull = this.cameras.main.scrollY + INTERNAL_HEIGHT + 280;
+      this.nearMissToastCooldown = Math.max(0, this.nearMissToastCooldown - dt);
 
       for (let i = this.cars.length - 1; i >= 0; i -= 1) {
         const car = this.cars[i];
@@ -863,6 +870,7 @@ export function createEscapeScene(Phaser, shared) {
         car.label.y = car.sprite.y - 40;
         car.shadow.x = car.sprite.x;
         car.shadow.y = car.sprite.y + 18;
+        this.maybeGrantNearMissBonus(car);
 
         const outOfBounds = car.laneDirection > 0 ? car.sprite.y > bottomCull : car.sprite.y < topCull;
         if (outOfBounds) {
@@ -873,6 +881,27 @@ export function createEscapeScene(Phaser, shared) {
 
       while (this.cars.length < 2) {
         this.spawnCar(false);
+      }
+    }
+
+    maybeGrantNearMissBonus(car) {
+      const nearMissNow = isNearMiss({
+        playerX: this.player.x,
+        playerY: this.player.y + 10,
+        carX: car.sprite.x,
+        carY: car.sprite.y,
+      });
+      if (nearMissNow && !car.nearMissed) {
+        car.nearMissed = true;
+        this.nearMissCount += 1;
+        this.state.setMoney(this.state.getMoney() + NEAR_MISS_BONUS);
+        if (this.nearMissToastCooldown <= 0) {
+          this.hud.showToast(`Near miss +${NEAR_MISS_BONUS}`, UI_THEME.success, 680);
+          this.nearMissToastCooldown = 1.1;
+        }
+      }
+      if (!nearMissNow) {
+        car.nearMissed = false;
       }
     }
 
