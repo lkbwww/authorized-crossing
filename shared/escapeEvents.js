@@ -78,3 +78,24 @@ export function isNearMiss({
     Math.abs(playerY - carY) <= nearMissHeight / 2
   );
 }
+
+export function getAdaptiveTrafficTargets({ elapsed, money, progress }) {
+  const early = elapsed < 15;
+  const mid = elapsed >= 15 && elapsed < 30;
+  let interval = early ? 1.05 : mid ? 0.82 : 0.95;
+  let desiredCount = early ? 6 : mid ? 8 : 7;
+
+  if (money >= 140) {
+    interval = Math.max(0.7, interval - 0.1);
+    desiredCount += 1;
+  }
+  if (progress >= 0.75) {
+    interval = Math.max(0.68, interval - 0.08);
+    desiredCount += 1;
+  }
+
+  return {
+    interval,
+    desiredCount: Math.min(10, desiredCount),
+  };
+}

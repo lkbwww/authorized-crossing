@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   applyLaneControlSpeed,
   didCrossLine,
+  getAdaptiveTrafficTargets,
   getLaneControlPenalty,
   isInsideLane,
   isLaneControlViolated,
@@ -83,4 +84,14 @@ test("isNearMiss checks tight window around the player", () => {
   assert.equal(isNearMiss(base), true);
   assert.equal(isNearMiss({ ...base, carX: 560 }), false);
   assert.equal(isNearMiss({ ...base, carY: 700 }), false);
+});
+
+test("getAdaptiveTrafficTargets increases pressure for rich or late-run players", () => {
+  const baseline = getAdaptiveTrafficTargets({ elapsed: 10, money: 80, progress: 0.2 });
+  assert.equal(baseline.desiredCount, 6);
+  assert.equal(baseline.interval, 1.05);
+
+  const richLate = getAdaptiveTrafficTargets({ elapsed: 32, money: 180, progress: 0.8 });
+  assert.equal(richLate.desiredCount, 9);
+  assert.equal(richLate.interval, 0.77);
 });

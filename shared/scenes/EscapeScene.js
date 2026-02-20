@@ -23,6 +23,7 @@ import {
   NEAR_MISS_BONUS,
   REWARD_LINE_BONUS,
   applyLaneControlSpeed,
+  getAdaptiveTrafficTargets,
   getLaneControlPenalty,
   isLaneControlViolated,
   isNearMiss,
@@ -562,13 +563,12 @@ export function createEscapeScene(Phaser, shared) {
 
     spawnCars(dt) {
       // Keep traffic density high while preserving both lane directions.
-      if (this.elapsed < 15) {
-        this.carSpawnInterval = 1.05;
-      } else if (this.elapsed < 30) {
-        this.carSpawnInterval = 0.82;
-      } else {
-        this.carSpawnInterval = 0.95;
-      }
+      const traffic = getAdaptiveTrafficTargets({
+        elapsed: this.elapsed,
+        money: this.state.getMoney(),
+        progress: this.getEscapeProgress(),
+      });
+      this.carSpawnInterval = traffic.interval;
 
       this.carSpawnAccumulator += dt;
       if (this.carSpawnAccumulator < this.carSpawnInterval) {
@@ -576,7 +576,7 @@ export function createEscapeScene(Phaser, shared) {
       }
       this.carSpawnAccumulator = 0;
 
-      const desiredCount = this.elapsed < 12 ? 6 : this.elapsed < 32 ? 8 : 7;
+      const desiredCount = traffic.desiredCount;
       let spawned = 0;
       while (this.cars.length < desiredCount && spawned < 3 && this.cars.length < MAX_CARS) {
         const downCount = this.cars.filter((car) => car.laneDirection > 0).length;
@@ -1056,9 +1056,7 @@ export function createEscapeScene(Phaser, shared) {
         itemsOwned.push("fakePapers");
       }
 
-      const totalDistance = Math.max(1, this.escapeStartY - this.townY);
-      const traveled = clamp(this.escapeStartY - this.player.y, 0, totalDistance);
-      const progress = traveled / totalDistance;
+      const progress = this.getEscapeProgress();
       const eta = this.forwardSpeed > 0 ? Math.max(0, (this.player.y - this.townY) / this.forwardSpeed) : 0;
 
       this.hud.updateEscape({
@@ -1069,6 +1067,12 @@ export function createEscapeScene(Phaser, shared) {
         progress,
         itemsOwned,
       });
+    }
+
+    getEscapeProgress() {
+      const totalDistance = Math.max(1, this.escapeStartY - this.townY);
+      const traveled = clamp(this.escapeStartY - this.player.y, 0, totalDistance);
+      return traveled / totalDistance;
     }
 
     updateDebug() {
