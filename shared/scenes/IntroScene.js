@@ -15,6 +15,7 @@ export function createIntroScene(Phaser) {
       this.storyTyping = false;
       this.storyTimer = null;
       this.merchantSignRevealTimer = null;
+      this.grainTick = 0;
       this.storyTextFull = [
         "Year 2026. The border has been closed for 10 years.",
         "To keep my family from starving, I cross the river.",
@@ -33,6 +34,7 @@ export function createIntroScene(Phaser) {
       this.add.ellipse(640, 488, 540, 150, 0xb08d57, 0.14);
 
       this.createMovingBackdrop();
+      this.createGrainLayer();
       this.createTexts();
       this.createStoryLayer();
       this.bindInput(Phaser);
@@ -90,6 +92,23 @@ export function createIntroScene(Phaser) {
 
       this.scanLine = this.add.rectangle(640, 0, 1280, 4, 0xf3e9d7, 0.06);
       this.scanLine.speed = 210;
+    }
+
+    createGrainLayer() {
+      this.grainLayer = this.add.graphics().setDepth(1200).setScrollFactor(0);
+      this.grainLayer.setAlpha(0.1);
+      this.renderGrain();
+    }
+
+    renderGrain() {
+      this.grainLayer.clear();
+      for (let i = 0; i < 180; i += 1) {
+        const x = Phaser.Math.Between(0, 1278);
+        const y = Phaser.Math.Between(0, 718);
+        const a = Phaser.Math.FloatBetween(0.03, 0.16);
+        this.grainLayer.fillStyle(0xf3e9d7, a);
+        this.grainLayer.fillRect(x, y, 2, 2);
+      }
     }
 
     createTexts() {
@@ -261,6 +280,12 @@ export function createIntroScene(Phaser) {
       this.scanLine.y += this.scanLine.speed * dt;
       if (this.scanLine.y > 740) {
         this.scanLine.y = -20;
+      }
+
+      this.grainTick += dt;
+      if (this.grainTick >= 0.08) {
+        this.grainTick = 0;
+        this.renderGrain();
       }
     }
 
