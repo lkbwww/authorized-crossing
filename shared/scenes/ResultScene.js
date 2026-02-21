@@ -43,6 +43,13 @@ export function createResultScene(Phaser, shared) {
           align: "center",
         })
         .setOrigin(0.5);
+      this.emblemRing = this.add.circle(150, 128, 44, 0x000000, 0).setStrokeStyle(5, 0xc89652, 0.8);
+      this.emblemCore = this.add.circle(150, 128, 24, 0xc89652, 0.32);
+      this.emblemMark = this.add.text(150, 128, "AC", {
+        fontFamily: "'Arial Black', Impact, sans-serif",
+        fontSize: "20px",
+        color: "#f8ecdc",
+      }).setOrigin(0.5);
 
       this.subtitleText = this.add
         .text(640, 148, "", {
@@ -195,6 +202,16 @@ export function createResultScene(Phaser, shared) {
 
       this.titleText.setText(this.resultData.endingTitle);
       this.subtitleText.setText(this.resultData.subtitle || "");
+      this.emblemCore.setScale(0.7).setAlpha(0.15);
+      this.emblemRing.setScale(0.7).setAlpha(0.2);
+      this.tweens.add({
+        targets: [this.emblemCore, this.emblemRing],
+        scaleX: 1,
+        scaleY: 1,
+        alpha: { from: 0.15, to: 0.85 },
+        duration: 340,
+        ease: "Sine.Out",
+      });
 
       const ownedItems = summary.itemsOwned.length > 0 ? summary.itemsOwned.join(", ") : "none";
       const confiscated = summary.confiscatedItems.length > 0 ? summary.confiscatedItems.join(", ") : "none";
