@@ -1,3 +1,7 @@
+/**
+ * Retro-styled opening flow:
+ * title screen -> briefing text -> merchant reveal -> shop.
+ */
 import { GAME_TITLE, UI_THEME } from "../constants.js";
 
 export function createIntroScene(Phaser) {
@@ -20,6 +24,7 @@ export function createIntroScene(Phaser) {
     }
 
     create() {
+      // Retro backdrop and animated overlays are static scene props.
       this.cameras.main.setBackgroundColor("#2B1B14");
 
       this.add.rectangle(640, 360, 1280, 720, 0x2b1b14, 1);
@@ -155,6 +160,7 @@ export function createIntroScene(Phaser) {
     }
 
     createStoryLayer() {
+      // Hidden initially; shown after title screen advance.
       this.storyPanel = this.add
         .rectangle(640, 430, 980, 330, 0x2b1b14, 0.92)
         .setStrokeStyle(3, 0xb08d57, 0.55)
@@ -210,11 +216,14 @@ export function createIntroScene(Phaser) {
     }
 
     bindInput(Phaser) {
+      // Space/Enter and pointer tap share the same phase advance hook.
       this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
       this.input.keyboard.addCapture([
         Phaser.Input.Keyboard.KeyCodes.SPACE,
         Phaser.Input.Keyboard.KeyCodes.ENTER,
+        Phaser.Input.Keyboard.KeyCodes.ESC,
       ]);
       this.input.on("pointerdown", () => this.advancePhase());
     }
@@ -225,6 +234,10 @@ export function createIntroScene(Phaser) {
       }
 
       const dt = deltaMs / 1000;
+      if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
+        this.continueToShop();
+        return;
+      }
       if (Phaser.Input.Keyboard.JustDown(this.keySpace) || Phaser.Input.Keyboard.JustDown(this.keyEnter)) {
         this.advancePhase();
         return;
@@ -256,10 +269,12 @@ export function createIntroScene(Phaser) {
         return;
       }
       if (this.phase === "title") {
+        // Title -> briefing text typing.
         this.startBriefingPhase();
         return;
       }
       if (this.phase === "storyTyping") {
+        // Skip typewriter and go straight to merchant reveal.
         this.finishStoryTyping();
         this.revealMerchant();
         return;
@@ -295,8 +310,9 @@ export function createIntroScene(Phaser) {
       this.storyText.setText("");
       let idx = 0;
       this.storyTyping = true;
+      // Typewriter effect for briefing paragraph.
       this.storyTimer = this.time.addEvent({
-        delay: 24,
+        delay: 14,
         loop: true,
         callback: () => {
           idx += 1;
@@ -338,11 +354,17 @@ export function createIntroScene(Phaser) {
       this.loadingText.setText("MERCHANT LOCATED");
       this.pressText.setText("PRESS SPACE BAR TO CONTINUE");
       this.pressText.setVisible(true);
+      this.time.delayedCall(1600, () => {
+        if (this.phase === "storyReady" && !this.transitioning) {
+          this.continueToShop();
+        }
+      });
 
       if (this.merchantSignRevealTimer) {
         this.merchantSignRevealTimer.remove(false);
       }
       this.merchantSignRevealTimer = this.time.delayedCall(3000, () => {
+        // Delayed sign reveal requested by the latest UX direction.
         if (!this.merchantContainer || !this.merchantContainer.active) {
           return;
         }
