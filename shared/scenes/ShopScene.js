@@ -65,6 +65,12 @@ export function createShopScene(Phaser, shared) {
         fontSize: "20px",
         color: "#E0A84A",
       });
+      this.bonusText = this.add.text(50, 242, "", {
+        fontFamily: "'Arial Black', Impact, sans-serif",
+        fontStyle: "bold",
+        fontSize: "16px",
+        color: UI_THEME.textSecondary,
+      });
 
       this.add
         .text(48, 286, "Item Manifest", {
@@ -265,6 +271,10 @@ export function createShopScene(Phaser, shared) {
       this.moneyText.setText(`MONEY: $${this.state.getMoney()}`);
       this.seasonText.setText(`SEASON: ${this.state.getSeason()}`);
       this.riskText.setText(`Risk Window: ${formatWindow(risk)}`);
+      const startBonus = this.run.appliedStartBonus || {};
+      this.bonusText.setText(
+        `Start Bonus: money +${startBonus.money || 0}, papers +${startBonus.fakePapers || 0}, risk-short ${startBonus.riskShortenSeconds || 0}s`
+      );
 
       this.itemRows.forEach((row, idx) => {
         const selected = idx === this.selectedIndex;

@@ -77,6 +77,14 @@ export function createResultScene(Phaser, shared) {
           wordWrap: { width: 1080 },
         })
         .setOrigin(0.5);
+      this.nextBonusText = this.add
+        .text(640, 560, "", {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontSize: "16px",
+          color: "#d8c7ab",
+          align: "center",
+        })
+        .setOrigin(0.5);
 
       this.learningText = this.add
         .text(640, 430, "", {
@@ -201,6 +209,7 @@ export function createResultScene(Phaser, shared) {
       this.renderMetricRows(summary);
 
       this.rewardButton.container.setVisible(isFailure && !this.rewardClaimed);
+      this.updateNextBonusSummary();
 
       if (isFailure && !this.rewardClaimed) {
         const learning = buildFailureLearning(this.resultData, summary);
@@ -266,12 +275,20 @@ export function createResultScene(Phaser, shared) {
           this.rewardClaimed = true;
           const message = this.state.applyRewardChoice(choice.id);
           this.feedbackText.setText(`${message}\n${choice.description}`);
+          this.updateNextBonusSummary();
           this.rewardButton.container.setVisible(false);
           this.rewardChoiceButtons.forEach((entry) => entry.setEnabled(false));
         });
 
         this.rewardChoiceButtons.push(button);
       });
+    }
+
+    updateNextBonusSummary() {
+      const bonus = this.state.getNextRunBonus();
+      this.nextBonusText.setText(
+        `Next Run Bonus: money +${bonus.money || 0}, fake-papers +${bonus.fakePapers || 0}, risk-short ${bonus.riskShortenSeconds || 0}s`
+      );
     }
   };
 }
