@@ -76,6 +76,7 @@ export function createRiverScene(Phaser, shared) {
       this.isEnding = false;
       this.debugScrollOn = false;
       this.debugGameOn = false;
+      this.debugPerfOn = false;
       this.riskWarningShown = false;
       this.riskWarnIconUntil = 0;
       this.wasRiskWindow = false;
@@ -411,6 +412,19 @@ export function createRiverScene(Phaser, shared) {
         .setScrollFactor(0)
         .setDepth(7100)
         .setVisible(false);
+
+      this.f3Text = this.add
+        .text(14, 664, "", {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontStyle: "bold",
+          fontSize: "14px",
+          color: "#b7ffb2",
+          backgroundColor: "#000000",
+          padding: { x: 8, y: 4 },
+        })
+        .setScrollFactor(0)
+        .setDepth(7100)
+        .setVisible(false);
     }
 
     setupInput(Phaser) {
@@ -425,6 +439,7 @@ export function createRiverScene(Phaser, shared) {
       this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
       this.keyF1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F1);
       this.keyF2 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F2);
+      this.keyF3 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F3);
 
       this.input.keyboard.addCapture([
         Phaser.Input.Keyboard.KeyCodes.LEFT,
@@ -512,9 +527,13 @@ export function createRiverScene(Phaser, shared) {
       if (Phaser.Input.Keyboard.JustDown(this.keyF2)) {
         this.debugGameOn = !this.debugGameOn;
       }
+      if (Phaser.Input.Keyboard.JustDown(this.keyF3)) {
+        this.debugPerfOn = !this.debugPerfOn;
+      }
 
       this.f1Text.setVisible(this.debugScrollOn);
       this.f2Text.setVisible(this.debugGameOn);
+      this.f3Text.setVisible(this.debugPerfOn);
 
       if (this.isPaused || this.isEnding) {
         this.updateDebugOverlay();
@@ -1754,6 +1773,19 @@ export function createRiverScene(Phaser, shared) {
             `exposureDelta ${this.lastExposureDelta.toFixed(2)}`,
             `boost ${this.boostCharge.toFixed(1)}${this.boostActive ? " active" : ""}`,
             `boostCd ${Math.max(0, this.boostCooldownUntil - this.elapsed).toFixed(1)}`,
+          ].join("  |  ")
+        );
+      }
+      if (this.debugPerfOn) {
+        const fps = this.game?.loop?.actualFps ?? 0;
+        const memMb = typeof performance !== "undefined" && performance.memory
+          ? performance.memory.usedJSHeapSize / 1048576
+          : null;
+        this.f3Text.setText(
+          [
+            "F3 perf",
+            `fps ${fps.toFixed(1)}`,
+            memMb == null ? "mem n/a" : `mem ${memMb.toFixed(1)}MB`,
           ].join("  |  ")
         );
       }
