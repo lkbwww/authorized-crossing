@@ -40,6 +40,7 @@ export class GameState {
       season: pickRandomFrom(SEASONS),
       template: pickRandomFrom(SPAWN_TEMPLATES),
       money: STARTING_MONEY + bonus.money,
+      appliedStartBonus: bonus,
       inventory: new Set(),
       fakePapersCharges: bonus.fakePapers,
       riskShortenSeconds: bonus.riskShortenSeconds,
@@ -123,10 +124,38 @@ export class GameState {
   // Computes the active risk window from base rules + purchased modifiers.
   getRiskWindow() {
     const durationBase = DEFAULT_RISK_WINDOW.end - DEFAULT_RISK_WINDOW.start;
-    const duration = Math.max(5, durationBase - this.run.riskShortenSeconds);
+    let start = DEFAULT_RISK_WINDOW.start;
+    let duration = durationBase;
+
+    // Seasonal/template variance keeps timing learnable but not identical every run.
+    const seasonShiftByKey = {
+      SPRING: 0,
+      AUTUMN: 2,
+      SUMMER: -2,
+      WINTER: 1,
+    };
+    start += seasonShiftByKey[this.run.season] ?? 0;
+    if (this.run.template === "A") {
+      duration += 2;
+    } else {
+      start += 1;
+      duration -= 1;
+    }
+
+    // Situation-based pressure adjustments.
+    if (this.run.money < BUS_FARE) {
+      start -= 1;
+      duration += 2;
+    }
+    if (this.run.fakePapersCharges > 0) {
+      duration = Math.max(6, duration - 1);
+    }
+
+    duration = Math.max(5, duration - this.run.riskShortenSeconds);
+    start = Math.max(8, start);
     return {
-      start: DEFAULT_RISK_WINDOW.start,
-      end: DEFAULT_RISK_WINDOW.start + duration,
+      start,
+      end: start + duration,
     };
   }
 
@@ -163,6 +192,10 @@ export class GameState {
   incrementRoundCount() {
     this.roundCount += 1;
     return this.roundCount;
+  }
+
+  getNextRunBonus() {
+    return { ...this.nextRunBonus };
   }
 
   // Applies one rewarded-ad choice to the very next run only.
