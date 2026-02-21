@@ -13,6 +13,7 @@ import {
   ENDINGS,
   EXPOSURE_DECAY_IN_WINDOW,
   EXPOSURE_DECAY_OUTSIDE_WINDOW,
+  EXPOSURE_GAIN_PER_SEC,
   EXPOSURE_MAX,
   FAST_CURRENT_DURATION,
   FAST_CURRENT_NOISE_BOOST,
@@ -107,6 +108,7 @@ export function createRiverScene(Phaser, shared) {
       this.grainJitterTick = 0;
       this.fxFogParticles = null;
       this.fxMistParticles = null;
+      this.boostGhostCooldown = 0;
     }
 
     init() {
@@ -305,6 +307,10 @@ export function createRiverScene(Phaser, shared) {
       this.playerBloom = this.add
         .ellipse(this.player.x, this.player.y - 6, 120, 70, 0xf2e3ca, 0.08)
         .setDepth(2098)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.detectionHalo = this.add
+        .ellipse(this.player.x, this.player.y, 98, 52, 0xe9b07a, 0)
+        .setDepth(2097)
         .setBlendMode(Phaser.BlendModes.ADD);
 
       this.grainOverlay = this.add
@@ -1269,6 +1275,12 @@ export function createRiverScene(Phaser, shared) {
       this.playerBloom.y = this.player.y - 6;
       const boostGlow = this.boostActive ? 0.15 : 0.08;
       this.playerBloom.setAlpha(boostGlow + Math.sin(this.visualClock * 2.2) * 0.018);
+      this.detectionHalo.x = this.player.x;
+      this.detectionHalo.y = this.player.y + 2;
+      const detectRatio = clamp(this.exposure / EXPOSURE_MAX, 0, 1);
+      this.detectionHalo.setAlpha(detectRatio * 0.22);
+      this.detectionHalo.width = 98 + detectRatio * 36;
+      this.detectionHalo.height = 52 + detectRatio * 20;
 
       this.grainJitterTick += dt;
       if (this.grainJitterTick >= 0.08) {
@@ -1304,11 +1316,38 @@ export function createRiverScene(Phaser, shared) {
       }
 
       if (this.motionMode !== "SWIMMING" && this.motionMode !== "WALKING") {
+        this.updateBoostAfterimage(dt);
         return;
       }
       this.trailCooldown = this.motionMode === "SWIMMING" ? 0.09 : 0.13;
       this.spawnWaterRipple(this.player.x, this.player.y + 14, this.motionMode === "SWIMMING");
       this.motionAudio?.playSwim(this.motionMode === "SWIMMING" ? 1 : 0.78);
+      this.updateBoostAfterimage(dt);
+    }
+
+    updateBoostAfterimage(dt) {
+      this.boostGhostCooldown -= dt;
+      if (!this.boostActive || this.boostGhostCooldown > 0) {
+        return;
+      }
+      this.boostGhostCooldown = 0.07;
+      const ghost = this.add
+        .image(this.player.x, this.player.y + 2, this.player.texture.key)
+        .setScale(this.player.scaleX, this.player.scaleY)
+        .setFlipX(this.player.flipX)
+        .setDepth(2088)
+        .setAlpha(0.2)
+        .setBlendMode(Phaser.BlendModes.SCREEN);
+      this.trackTrailMark(ghost);
+      this.tweens.add({
+        targets: ghost,
+        alpha: 0,
+        y: ghost.y + 16,
+        scaleX: ghost.scaleX * 0.94,
+        scaleY: ghost.scaleY * 0.94,
+        duration: 260,
+        onComplete: () => this.removeTrailMark(ghost),
+      });
     }
 
     spawnWaterRipple(x, y, strong = false) {
@@ -1378,7 +1417,6 @@ export function createRiverScene(Phaser, shared) {
     }
 
     updateExposure(dt) {
-      // Detection zone contact is immediate arrest in current ruleset.
       const inRisk = this.isInRiskWindow();
       const insideActiveZone = this.isInsideActiveZone();
 
@@ -1387,10 +1425,16 @@ export function createRiverScene(Phaser, shared) {
           this.lastExposureDelta = 0;
           return;
         }
-        this.lastExposureDelta = EXPOSURE_MAX - this.exposure;
-        this.exposure = EXPOSURE_MAX;
+        const coatGainMult = this.hasExposureDampeningCoat ? 0.72 : 1;
+        const submergedGainMult = this.submerged ? 0.55 : 1;
+        const riskGainMult = inRisk ? 1.15 : 0.9;
+        const gain = EXPOSURE_GAIN_PER_SEC * coatGainMult * submergedGainMult * riskGainMult * dt;
+        this.lastExposureDelta = gain;
+        this.exposure = clamp(this.exposure + gain, 0, EXPOSURE_MAX);
         this.state.markExposure(this.exposure);
-        this.triggerExposureDeath();
+        if (this.exposure >= EXPOSURE_MAX) {
+          this.triggerExposureDeath();
+        }
         return;
       }
 
@@ -1707,6 +1751,7 @@ export function createRiverScene(Phaser, shared) {
         this.landDetailBg,
         this.playerShadow,
         this.playerBloom,
+        this.detectionHalo,
         this.farHaze,
         this.nearFog,
         this.gradeOverlay,
