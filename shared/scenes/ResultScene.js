@@ -59,12 +59,13 @@ export function createResultScene(Phaser, shared) {
         .text(640, 242, "Loading result...", {
           fontFamily: "'Arial Black', Impact, sans-serif",
           fontStyle: "bold",
-          fontSize: "20px",
+          fontSize: "18px",
           color: "#e1cfb8",
           align: "center",
           wordWrap: { width: 1100 },
         })
         .setOrigin(0.5, 0);
+      this.metricRows = this.createMetricRows();
 
       this.feedbackText = this.add
         .text(640, 514, "", {
@@ -131,6 +132,29 @@ export function createResultScene(Phaser, shared) {
       this.startResultSequence();
     }
 
+    createMetricRows() {
+      const rows = [];
+      const labels = ["RIVER", "ESCAPE", "BOOST", "RISK"];
+      for (let i = 0; i < labels.length; i += 1) {
+        const y = 330 + i * 28;
+        const label = this.add.text(290, y, labels[i], {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontSize: "14px",
+          color: "#e1cfb8",
+        });
+        const bg = this.add.rectangle(500, y + 10, 420, 12, 0x1f150f, 0.9).setOrigin(0, 0.5);
+        const fg = this.add.rectangle(500, y + 10, 0, 12, 0xc89652, 0.9).setOrigin(0, 0.5);
+        const value = this.add.text(936, y, "-", {
+          fontFamily: "'Arial Black', Impact, sans-serif",
+          fontSize: "14px",
+          color: "#edd3b5",
+          align: "right",
+        }).setOrigin(1, 0);
+        rows.push({ label, bg, fg, value });
+      }
+      return rows;
+    }
+
     update() {
       if (
         Phaser.Input.Keyboard.JustDown(this.keyR) ||
@@ -169,14 +193,12 @@ export function createResultScene(Phaser, shared) {
 
       this.statusText.setText(
         [
-          `SEASON: ${summary.season}   TEMPLATE: ${summary.template}   MONEY: $${summary.money}   INJURED: ${summary.injured ? "YES" : "NO"}`,
-          `INSPECTIONS: ${summary.inspectionCount} (waived ${summary.inspectionWaivedCount || 0})   PEAK EXPOSURE: ${summary.exposurePeak}   RIVER: ${summary.riverTimeSpent.toFixed(1)}s   ESCAPE: ${summary.escapeTimeSpent.toFixed(1)}s`,
-          `BOOST USED: ${summary.boostUseTime.toFixed(1)}s (${summary.boostUseCount} activations)`,
-          `ESCAPE EVENTS: NEAR MISS ${summary.nearMissCount}   BONUS LINES ${summary.rewardLineClaims}   CONTROL TAX $${summary.laneControlPenaltyPaid}`,
-          `ITEMS OWNED: ${ownedItems}`,
-          `CONFISCATED: ${confiscated}`,
+          `SEASON ${summary.season} | TEMPLATE ${summary.template} | MONEY $${summary.money} | INJURED ${summary.injured ? "YES" : "NO"}`,
+          `INSPECTIONS ${summary.inspectionCount} (waived ${summary.inspectionWaivedCount || 0}) | EVENTS near-miss ${summary.nearMissCount}, bonus-lines ${summary.rewardLineClaims}, control-tax $${summary.laneControlPenaltyPaid}`,
+          `ITEMS ${ownedItems} | CONFISCATED ${confiscated}`,
         ].join("\n")
       );
+      this.renderMetricRows(summary);
 
       this.rewardButton.container.setVisible(isFailure && !this.rewardClaimed);
 
@@ -194,6 +216,24 @@ export function createResultScene(Phaser, shared) {
           this.feedbackText.setText("");
         }
       }
+    }
+
+    renderMetricRows(summary) {
+      const maxRiver = 75;
+      const maxEscape = 45;
+      const maxBoost = 30;
+      const maxRisk = 100;
+      const rows = [
+        { ratio: Math.min(1, summary.riverTimeSpent / maxRiver), value: `${summary.riverTimeSpent.toFixed(1)}s` },
+        { ratio: Math.min(1, summary.escapeTimeSpent / maxEscape), value: `${summary.escapeTimeSpent.toFixed(1)}s` },
+        { ratio: Math.min(1, summary.boostUseTime / maxBoost), value: `${summary.boostUseTime.toFixed(1)}s x${summary.boostUseCount}` },
+        { ratio: Math.min(1, summary.exposurePeak / maxRisk), value: `${summary.exposurePeak}%` },
+      ];
+      rows.forEach((entry, idx) => {
+        const row = this.metricRows[idx];
+        row.fg.width = Math.max(2, Math.floor(420 * entry.ratio));
+        row.value.setText(entry.value);
+      });
     }
 
     async handleRewardedAd() {
