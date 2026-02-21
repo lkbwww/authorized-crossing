@@ -283,11 +283,26 @@ export function createShopScene(Phaser, shared) {
       }).join("  ");
 
       const selectedItem = this.shopItems[this.selectedIndex];
+      const compare = this.buildItemComparison(selectedItem.id);
       this.itemHintText.setText(
-        `Effect: ${selectedItem.description}\nWhy: ${selectedItem.why || "Operational advantage"}\nBest for: ${selectedItem.bestFor || "General use"}`
+        `Effect: ${selectedItem.description}\n${compare}\nWhy: ${selectedItem.why || "Operational advantage"}\nBest for: ${selectedItem.bestFor || "General use"}`
       );
       this.slotsText.setText(`SLOTS: ${slotText}`);
       this.messageText.setText(this.message);
+    }
+
+    buildItemComparison(itemId) {
+      const table = {
+        boostWhisperModule: "Noise boost: +38% -> +24%",
+        powerCapacitorCoil: "Boost drain/recover: -12% / +12%",
+        rewardLineScope: "Reward line tolerance: 8 -> 16 px",
+        rewardRelayDrone: "Reward duration/cooldown: +0.9s / -12%",
+        laneControlStabilizer: "Lane tax/speed penalty: -$1 tick / -8% slowdown",
+        inspectionInsuranceLedger: "Inspection waives: 0 -> 1 run",
+        exposureDampeningCoat: "Detection gain: 100% -> 72%",
+        riskWindowTracker: "Early warning lead: 3s -> 5s",
+      };
+      return `Stats: ${table[itemId] || "No stat preview"}`;
     }
   };
 }
