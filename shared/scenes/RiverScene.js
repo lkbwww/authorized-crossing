@@ -313,6 +313,10 @@ export function createRiverScene(Phaser, shared) {
         .ellipse(this.player.x, this.player.y, 98, 52, 0xe9b07a, 0)
         .setDepth(2097)
         .setBlendMode(Phaser.BlendModes.ADD);
+      this.riskGlow = this.add
+        .ellipse(this.player.x, this.player.y, 180, 120, 0xe0a84a, 0)
+        .setDepth(2096)
+        .setBlendMode(Phaser.BlendModes.ADD);
 
       this.grainOverlay = this.add
         .tileSprite(INTERNAL_WIDTH / 2, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT, "fx-film-grain")
@@ -1312,6 +1316,10 @@ export function createRiverScene(Phaser, shared) {
       this.detectionHalo.setAlpha(detectRatio * 0.22);
       this.detectionHalo.width = 98 + detectRatio * 36;
       this.detectionHalo.height = 52 + detectRatio * 20;
+      this.riskGlow.x = this.player.x;
+      this.riskGlow.y = this.player.y + 4;
+      const inRisk = this.isInRiskWindow();
+      this.riskGlow.setAlpha(inRisk ? 0.08 + Math.sin(this.visualClock * 4.2) * 0.02 : 0);
 
       this.grainJitterTick += dt;
       if (this.grainJitterTick >= 0.08) {
@@ -1797,6 +1805,7 @@ export function createRiverScene(Phaser, shared) {
         this.playerShadow,
         this.playerBloom,
         this.detectionHalo,
+        this.riskGlow,
         this.farHaze,
         this.nearFog,
         this.gradeOverlay,
