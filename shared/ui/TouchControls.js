@@ -161,6 +161,23 @@ export function createTouchControls(scene, options = {}) {
     isDownPressed: () => downPressed,
     isUpPressed: () => upPressed,
     isBoostPressed: () => boostPressed,
+    setBoostState(state = {}) {
+      if (!boostRect || !boostText) {
+        return;
+      }
+      if (state.cooldown && state.cooldown > 0) {
+        boostRect.setFillStyle(0x2f2b27, 0.75);
+        boostText.setText(`COOLDOWN ${state.cooldown.toFixed(1)}s`);
+        return;
+      }
+      if (state.active) {
+        boostRect.setFillStyle(0x7a5a2f, 0.82);
+        boostText.setText(`BOOST ${Math.round(state.charge ?? 0)}%`);
+        return;
+      }
+      boostRect.setFillStyle(0x2c1f15, 0.65);
+      boostText.setText(`BOOST ${Math.round(state.charge ?? 0)}%`);
+    },
     destroy() {
       leftRect.destroy();
       rightRect.destroy();

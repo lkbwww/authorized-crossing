@@ -548,6 +548,7 @@ export function createRiverScene(Phaser, shared) {
       this.updateFeedbackText();
       this.updateAtmosphereFx(dt);
       this.updatePostProcessFx(dt);
+      this.updateTouchBoostFeedback();
 
       this.riskDarken.setAlpha(this.isInRiskWindow() ? 0.1 : 0);
       this.updateHud();
@@ -556,6 +557,17 @@ export function createRiverScene(Phaser, shared) {
       if (this.hasReachedRiverTerminal() || this.elapsed >= RIVER_DURATION) {
         this.handleRiverEndBusStop();
       }
+    }
+
+    updateTouchBoostFeedback() {
+      if (!this.touchControls?.setBoostState) {
+        return;
+      }
+      this.touchControls.setBoostState({
+        active: this.boostActive,
+        charge: this.boostCharge,
+        cooldown: Math.max(0, this.boostCooldownUntil - this.elapsed),
+      });
     }
 
     hasReachedRiverTerminal() {
