@@ -1242,6 +1242,19 @@ export function createEscapeScene(Phaser, shared) {
 
       const progress = this.getEscapeProgress();
       const eta = this.forwardSpeed > 0 ? Math.max(0, (this.player.y - this.townY) / this.forwardSpeed) : 0;
+      const laneControl = this.laneControlEvent
+        ? {
+            active: true,
+            lane: this.laneControlEvent.lane,
+            secLeft: Math.max(0, this.laneControlEvent.expiresAt - this.elapsed),
+            ratio: Math.max(0, (this.laneControlEvent.expiresAt - this.elapsed) / 7.2),
+            violating: this.isPlayerViolatingLaneControl(),
+          }
+        : {
+            active: false,
+            previewLane: this.laneControlNextLane || null,
+            previewSec: Math.max(0, this.laneControlCooldown),
+          };
 
       this.hud.updateEscape({
         money: this.state.getMoney(),
@@ -1250,6 +1263,7 @@ export function createEscapeScene(Phaser, shared) {
         secLeft: eta,
         progress,
         itemsOwned,
+        laneControl,
       });
     }
 
