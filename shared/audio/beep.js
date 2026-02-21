@@ -1,3 +1,7 @@
+/**
+ * Minimal one-shot beep helper for warnings and telegraphs.
+ * Uses WebAudio directly so it works without external assets.
+ */
 export function playBeep(scene, frequency = 820, durationSec = 0.08, volume = 0.03) {
   try {
     const ctx = scene.sound?.context;

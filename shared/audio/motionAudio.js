@@ -1,3 +1,7 @@
+/**
+ * Procedural motion sound effects:
+ * dirt steps, snow steps, swim strokes, and dive entry.
+ */
 function getAudioContext(scene) {
   return scene?.sound?.context ?? null;
 }
@@ -180,6 +184,7 @@ export class MotionAudioController {
     return true;
   }
 
+  // Dirt footstep used on non-winter land tiles.
   playWalkDirt(intensity = 1) {
     if (!this.canPlay("walkDirt", 0.1)) {
       return;
@@ -191,6 +196,7 @@ export class MotionAudioController {
     makeDirtStep(ctx, intensity);
   }
 
+  // Crunchier winter step used on snow/ice ground.
   playWalkSnow(intensity = 1) {
     if (!this.canPlay("walkSnow", 0.12)) {
       return;
@@ -202,6 +208,7 @@ export class MotionAudioController {
     makeSnowStep(ctx, intensity);
   }
 
+  // Repeated water stroke while moving in water.
   playSwim(intensity = 1) {
     if (!this.canPlay("swim", 0.14)) {
       return;
@@ -213,6 +220,7 @@ export class MotionAudioController {
     makeSwimStroke(ctx, intensity);
   }
 
+  // One-shot entry sound when submerge starts.
   playDive() {
     if (!this.canPlay("dive", 0.24)) {
       return;

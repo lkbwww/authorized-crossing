@@ -1,3 +1,7 @@
+/**
+ * Playwright E2E config.
+ * Boots a local Vite server and runs smoke tests against it.
+ */
 import { defineConfig } from "@playwright/test";
 
 const E2E_HOST = "127.0.0.1";
@@ -14,12 +18,14 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
+    // Shared defaults for all tests in this project.
     baseURL: E2E_BASE_URL,
     trace: "on-first-retry",
     video: "off",
     screenshot: "only-on-failure",
   },
   webServer: {
+    // Boot Vite automatically for local E2E runs.
     command: `npm run dev -- --host ${E2E_HOST} --port ${E2E_PORT} --strictPort`,
     url: E2E_BASE_URL,
     reuseExistingServer: !process.env.CI,

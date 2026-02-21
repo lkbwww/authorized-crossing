@@ -1,4 +1,8 @@
+/**
+ * Shared UI primitives.
+ */
 export function createButton(scene, x, y, width, height, label, onClick) {
+  // Container keeps button visuals and label grouped for easy positioning.
   const container = scene.add.container(x, y);
 
   const bg = scene.add
@@ -18,6 +22,7 @@ export function createButton(scene, x, y, width, height, label, onClick) {
 
   bg.on("pointerover", () => bg.setFillStyle(0x4a3322, 1));
   bg.on("pointerout", () => bg.setFillStyle(0x2e2117, 0.92));
+  // Trigger callback only on explicit press.
   bg.on("pointerdown", () => {
     if (onClick) {
       onClick();
@@ -45,6 +50,7 @@ export function createButton(scene, x, y, width, height, label, onClick) {
 }
 
 export function drawBar(graphics, x, y, width, height, ratio, fillColor, bgColor = 0x111827) {
+  // Simple framed bar used in several overlay UIs.
   graphics.clear();
   graphics.fillStyle(bgColor, 0.95);
   graphics.fillRect(x, y, width, height);

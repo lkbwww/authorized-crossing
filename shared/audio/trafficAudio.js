@@ -1,3 +1,7 @@
+/**
+ * Procedural traffic engine-bed audio for the escape road scene.
+ * Volume and pitch are modulated by nearest car speed/proximity.
+ */
 function getAudioContext(scene) {
   return scene?.sound?.context ?? null;
 }
@@ -79,6 +83,7 @@ export class TrafficAudioController {
   }
 
   playForTraffic(cars, playerX, playerY) {
+    // Emit short looping bursts based on the nearest active car only.
     if (!cars || cars.length === 0) {
       return;
     }

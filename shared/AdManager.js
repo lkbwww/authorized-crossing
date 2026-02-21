@@ -1,6 +1,11 @@
+/**
+ * Fake ad flow manager used by the result scene.
+ * Real ad SDK integration can replace these overlay hooks later.
+ */
 import { REQUIRED_STRINGS } from "./constants.js";
 
 export class AdManager {
+  // Interstitial shown on every second result screen.
   showInterstitial(scene) {
     return this.showOverlay(
       scene,
@@ -10,6 +15,7 @@ export class AdManager {
     );
   }
 
+  // Rewarded ad used only on failure flow.
   showRewarded(scene) {
     return this.showOverlay(
       scene,
@@ -19,6 +25,7 @@ export class AdManager {
     );
   }
 
+  // Generic full-screen overlay used as fake ad placeholder.
   showOverlay(scene, title, body, durationMs) {
     return new Promise((resolve) => {
       const container = scene.add.container(scene.scale.width / 2, scene.scale.height / 2);

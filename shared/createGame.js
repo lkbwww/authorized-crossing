@@ -1,3 +1,7 @@
+/**
+ * Creates and boots the Phaser game with shared scenes/state.
+ * Used by both runtime entrypoints: static-build and vite-build.
+ */
 import { AdManager } from "./AdManager.js";
 import { GameState } from "./GameState.js";
 import { INTERNAL_HEIGHT, INTERNAL_WIDTH } from "./constants.js";
@@ -8,6 +12,7 @@ import { createRiverScene } from "./scenes/RiverScene.js";
 import { createShopScene } from "./scenes/ShopScene.js";
 
 export function createAuthorizedCrossingGame(Phaser, options = {}) {
+  // Shared mutable singletons injected into every scene factory.
   const shared = {
     gameState: new GameState(),
     adManager: new AdManager(),
@@ -19,6 +24,7 @@ export function createAuthorizedCrossingGame(Phaser, options = {}) {
   const EscapeScene = createEscapeScene(Phaser, shared);
   const ResultScene = createResultScene(Phaser, shared);
 
+  // Phaser runtime config (pixel-art + fixed aspect via FIT/CENTER_BOTH).
   const config = {
     type: Phaser.AUTO,
     parent: options.parent || "game-root",
@@ -50,6 +56,7 @@ export function createAuthorizedCrossingGame(Phaser, options = {}) {
   };
 
   const game = new Phaser.Game(config);
+  // Debug hooks for browser-based smoke tests and quick manual inspection.
   game.__authorizedCrossing = shared;
   if (typeof window !== "undefined") {
     window.__authorizedCrossingGame = game;
