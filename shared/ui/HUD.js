@@ -254,7 +254,10 @@ export class HUD {
 
   buildSlotText(itemsOwned) {
     const ownedSet = new Set(itemsOwned);
-    return ITEM_DEFINITIONS.map((item) => `[${item.slot}]${ownedSet.has(item.id) ? "+" : "-"}`).join(" ");
+    return ITEM_DEFINITIONS.map((item) => {
+      const icon = item.slotAbbrev.slice(0, 2).toUpperCase();
+      return `<${icon}:${ownedSet.has(item.id) ? "ON" : "OFF"}>`;
+    }).join(" ");
   }
 
   showToast(text, color = UI_THEME.warn, durationMs = 1500) {
