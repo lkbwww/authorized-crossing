@@ -1,3 +1,7 @@
+/**
+ * Runtime-generated pixel textures.
+ * This keeps the project static-host friendly without external art files.
+ */
 function generate(scene, key, data, palette) {
   if (scene.textures.exists(key)) {
     return;
@@ -10,6 +14,7 @@ function generate(scene, key, data, palette) {
 }
 
 export function ensurePixelTextures(scene) {
+  // Player sprites (idle/walk/swim/submerge variants).
   generate(scene, "px-player", [
     "................",
     ".....aaaa.......",
@@ -218,6 +223,7 @@ export function ensurePixelTextures(scene) {
     j: "#93CBEA",
   });
 
+  // World entities.
   generate(scene, "px-guard", [
     "................",
     "......bb........",
@@ -332,77 +338,124 @@ export function ensurePixelTextures(scene) {
     c: "#A34B3A",
   });
 
-  generate(scene, "tile-water-sky", [
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaaddeabbaabba",
-    "baabbaabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabddabbaabccab",
-    "abbaabbaabbaabba",
-    "baabbaabdeabbaab",
-    "abbaabbaabbaabba",
-    "baabccabbaabddab",
-    "abbaabbaabbaabba",
-    "baabdeabbaabccab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaaddeabbaabba",
-    "baabbaabbaabbaab",
+  generate(scene, "fx-film-grain", [
+    "abcaabcbacbaabca",
+    "cbabacabcbaacbab",
+    "aabcbaabcbacbaab",
+    "bcabcaabcabbacba",
+    "cababcbaabcabcba",
+    "abcbacbaabcaabcb",
+    "baabcabcbacbaabc",
+    "cbacbaabcabcbaca",
+    "acbabcaabcbaabcb",
+    "bcaabcabbacbaabc",
+    "cabcbacaabcabacb",
+    "abcaabcbacbaabca",
+    "cbabacabcbaacbab",
+    "aabcbaabcbacbaab",
+    "bcabcaabcabbacba",
+    "cababcbaabcabcba",
   ], {
-    a: "#6EAED6",
-    b: "#86C2E8",
-    c: "#A8D9F6",
-    d: "#8A6A47",
-    e: "#A37D55",
+    a: "#181310",
+    b: "#2A221D",
+    c: "#0F0B09",
+  });
+
+  generate(scene, "px-mist", [
+    "................",
+    "................",
+    ".....abbbab.....",
+    "...abbccccbba...",
+    "..abccccccccba..",
+    ".abccccccccccba.",
+    ".abccccccccccba.",
+    "..abccccccccba..",
+    "...abbccccbba...",
+    ".....abbbab.....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], {
+    a: "#FFFFFF",
+    b: "#D5DCE2",
+    c: "#B9C4CC",
+  });
+
+  // Terrain tiles by season/water state.
+  generate(scene, "tile-water-sky", [
+    "abbcaabbdcaabbca",
+    "bcabdcaabcbdaabc",
+    "cabbcaabdcaabcbc",
+    "abcbdaabcabbcaab",
+    "bbcaabbdcaabcbca",
+    "caabdcaabcbcabbc",
+    "abbdcaabcbcaabbd",
+    "dcaabcbcabbcaabd",
+    "caabcbcaabbdcaab",
+    "bcbcabbcaabdcabc",
+    "cbcaabbdcaabcbca",
+    "abbcaabcbcabbcaa",
+    "bdcaabcbcaabbdca",
+    "abcbcabbcaabdcaa",
+    "cbcaabbdcaabcbca",
+    "abbcaabcbcabbcaa",
+  ], {
+    a: "#6BA9CF",
+    b: "#81BDE1",
+    c: "#99D0EE",
+    d: "#5D98C0",
   });
 
   generate(scene, "tile-water-blue", [
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabccabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabccab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabccabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabccab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
+    "abccbaabdcabccba",
+    "cbabdcabccbaabdc",
+    "abdcabccbaabdcab",
+    "ccbaabdcabccbaab",
+    "baabdcabccbaabdc",
+    "dcabccbaabdcabcc",
+    "abccbaabdcabccba",
+    "cbabdcabccbaabdc",
+    "abdcabccbaabdcab",
+    "ccbaabdcabccbaab",
+    "baabdcabccbaabdc",
+    "dcabccbaabdcabcc",
+    "abccbaabdcabccba",
+    "cbabdcabccbaabdc",
+    "abdcabccbaabdcab",
+    "ccbaabdcabccbaab",
   ], {
-    a: "#24689E",
-    b: "#2E7AB4",
-    c: "#4F98CF",
+    a: "#1F5B8B",
+    b: "#2A6FA8",
+    c: "#3E89BD",
+    d: "#57A1CE",
   });
 
   generate(scene, "tile-water-winter", [
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaaddeabbaabba",
-    "baabbaabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabccabbaabddab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabddabbaabbaab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabccab",
-    "abbaabbaabbaabba",
-    "baabbaabbaabbaab",
-    "abbaaddeabbaabba",
-    "baabbaabbaabbaab",
+    "abccbaabdcabccba",
+    "cbabdcabccbaabdc",
+    "abdeabccbaabdeab",
+    "ccbaabdcabccbaab",
+    "baabdcabccbaabdc",
+    "deabccbaabdcabde",
+    "abccbaabdcabccba",
+    "cbabdcabccbaabdc",
+    "abdeabccbaabdeab",
+    "ccbaabdcabccbaab",
+    "baabdcabccbaabdc",
+    "deabccbaabdcabde",
+    "abccbaabdcabccba",
+    "cbabdcabccbaabdc",
+    "abdeabccbaabdeab",
+    "ccbaabdcabccbaab",
   ], {
-    a: "#8B99A3",
-    b: "#A5B2BC",
-    c: "#C3CED6",
-    d: "#E9F0F5",
-    e: "#F6FBFF",
+    a: "#83939E",
+    b: "#9BAAB4",
+    c: "#B8C5CE",
+    d: "#D7E2E9",
+    e: "#EEF6FB",
   });
 
   generate(scene, "tile-water", [
@@ -525,26 +578,72 @@ export function ensurePixelTextures(scene) {
   });
 
   generate(scene, "tile-bank", [
-    "aabbaabbaabbaabb",
-    "baabbaabbaabbaab",
-    "aabbaabbaabbaabb",
-    "baabddabbaabbaab",
-    "aabbaabbaabbaabb",
-    "baabbaabbaabddab",
-    "aabbaabbaabbaabb",
-    "baabbaabbaabbaab",
-    "aabbaabbaabbaabb",
-    "baabddabbaabbaab",
-    "aabbaabbaabbaabb",
-    "baabbaabbaabddab",
-    "aabbaabbaabbaabb",
-    "baabbaabbaabbaab",
-    "aabbaabbaabbaabb",
-    "baabbaabbaabbaab",
+    "aabcdaabbcdaabca",
+    "bcdaabcdaabbcdaa",
+    "daabbcdaabcdaabb",
+    "abcdaabbcdaabcda",
+    "cdaabcdaabbcdaaa",
+    "bbcdabbcdaabcdaa",
+    "daabcdaabbcdaabc",
+    "cdaabbcdaabcdaab",
+    "aabcdaabbcdaabca",
+    "bcdaabcdaabbcdaa",
+    "daabbcdaabcdaabb",
+    "abcdaabbcdaabcda",
+    "cdaabcdaabbcdaaa",
+    "bbcdabbcdaabcdaa",
+    "daabcdaabbcdaabc",
+    "cdaabbcdaabcdaab",
   ], {
-    a: "#6E4D31",
-    b: "#7A5636",
-    d: "#8D6642",
+    a: "#63472E",
+    b: "#744F33",
+    c: "#835B3A",
+    d: "#976848",
+  });
+
+  generate(scene, "tile-road-asphalt", [
+    "abacabadabacabad",
+    "cbacabadcbacabad",
+    "abacabadabacabad",
+    "dbacabadcbacabad",
+    "abacabadabacabad",
+    "cbacabadcbacabad",
+    "abacabadabacabad",
+    "dbacabadcbacabad",
+    "abacabadabacabad",
+    "cbacabadcbacabad",
+    "abacabadabacabad",
+    "dbacabadcbacabad",
+    "abacabadabacabad",
+    "cbacabadcbacabad",
+    "abacabadabacabad",
+    "dbacabadcbacabad",
+  ], {
+    a: "#2E2E2E",
+    b: "#383838",
+    c: "#404040",
+    d: "#474747",
+  });
+
+  generate(scene, "tile-road-line", [
+    "........aaaaaaaa",
+    "........aaaaaaaa",
+    "........aaaaaaaa",
+    "........aaaaaaaa",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "........aaaaaaaa",
+    "........aaaaaaaa",
+    "........aaaaaaaa",
+    "........aaaaaaaa",
+  ], {
+    a: "#D7C58E",
   });
 
   generate(scene, "tile-bank-winter", [
