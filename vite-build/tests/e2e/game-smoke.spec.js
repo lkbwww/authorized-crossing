@@ -30,6 +30,22 @@ async function riverBoostCharge(page) {
   });
 }
 
+async function forceEscapeScene(page, { money = 100, elapsed = 0 } = {}) {
+  await page.evaluate(({ moneyValue, elapsedValue }) => {
+    const game = window.__authorizedCrossingGame;
+    const shared = window.__authorizedCrossingShared;
+    if (!game || !shared?.gameState) {
+      return;
+    }
+    shared.gameState.setMoney(moneyValue);
+    const river = game.scene.getScenes(true).find((s) => s?.scene?.key === "RiverScene");
+    if (river) {
+      river.elapsed = elapsedValue;
+      river.handleRiverEndBusStop();
+    }
+  }, { moneyValue: money, elapsedValue: elapsed });
+}
+
 async function goToRiverScene(page) {
   await page.goto("/");
   await expect(page.locator("#game-root canvas")).toBeVisible();
@@ -90,4 +106,42 @@ test("river boost consumes and recovers charge", async ({ page }) => {
   const recoveredBoost = await riverBoostCharge(page);
   expect(recoveredBoost).not.toBeNull();
   expect(recoveredBoost).toBeGreaterThan(drainedBoost);
+});
+
+test("economy route reaches EscapeScene when bus fare is insufficient", async ({ page }) => {
+  await goToRiverScene(page);
+  await forceEscapeScene(page, { money: 10, elapsed: 30 });
+  await expect.poll(() => activeSceneKey(page)).toBe("EscapeScene");
+});
+
+test("escape timeout route results in arrest scene", async ({ page }) => {
+  await goToRiverScene(page);
+  await forceEscapeScene(page, { money: 10, elapsed: 30 });
+  await expect.poll(() => activeSceneKey(page)).toBe("EscapeScene");
+
+  await page.evaluate(() => {
+    const game = window.__authorizedCrossingGame;
+    const escape = game?.scene?.getScenes(true)?.find((s) => s?.scene?.key === "EscapeScene");
+    if (escape) {
+      escape.elapsed = 45.2;
+    }
+  });
+  await page.waitForTimeout(350);
+  await expect.poll(() => activeSceneKey(page)).toBe("ResultScene");
+});
+
+test("escape town route reaches result as success branch", async ({ page }) => {
+  await goToRiverScene(page);
+  await forceEscapeScene(page, { money: 10, elapsed: 30 });
+  await expect.poll(() => activeSceneKey(page)).toBe("EscapeScene");
+
+  await page.evaluate(() => {
+    const game = window.__authorizedCrossingGame;
+    const escape = game?.scene?.getScenes(true)?.find((s) => s?.scene?.key === "EscapeScene");
+    if (escape?.player) {
+      escape.player.y = escape.townY + 20;
+    }
+  });
+  await page.waitForTimeout(350);
+  await expect.poll(() => activeSceneKey(page)).toBe("ResultScene");
 });
