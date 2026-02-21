@@ -1699,6 +1699,7 @@ export function createRiverScene(Phaser, shared) {
         season: this.seasonKey,
         injured: this.state.isInjured(),
         motionMode: this.motionMode,
+        elapsed: this.elapsed,
         secLeft: RIVER_DURATION - this.elapsed,
         progress: this.elapsed / RIVER_DURATION,
         exposure: this.exposure,
@@ -1712,7 +1713,7 @@ export function createRiverScene(Phaser, shared) {
         itemsOwned,
         riskWindow: this.riskWindow,
         totalDuration: RIVER_DURATION,
-        showRiskWindow: this.hasRiskWindowTracker,
+        showRiskWindow: true,
         isSubmerged: this.submerged,
       });
     }
