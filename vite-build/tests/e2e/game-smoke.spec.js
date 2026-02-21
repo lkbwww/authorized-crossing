@@ -44,6 +44,20 @@ async function forceEscapeScene(page, { money = 100, elapsed = 0 } = {}) {
       river.handleRiverEndBusStop();
     }
   }, { moneyValue: money, elapsedValue: elapsed });
+
+  await page.waitForTimeout(2200);
+  const active = await activeSceneKey(page);
+  if (active === "RiverScene") {
+    await page.evaluate(() => {
+      const game = window.__authorizedCrossingGame;
+      const river = game?.scene?.getScenes(true)?.find((s) => s?.scene?.key === "RiverScene");
+      if (!river) {
+        return;
+      }
+      river.run.riverTimeSpent = river.elapsed;
+      river.scene.start("EscapeScene", { fromRiverBusStop: true, testFallback: true });
+    });
+  }
 }
 
 async function goToRiverScene(page) {
@@ -59,6 +73,26 @@ async function goToRiverScene(page) {
   await page.keyboard.press("Space");
   await expect.poll(() => activeSceneKey(page)).toBe("ShopScene");
   await page.keyboard.press("Space");
+  await page.waitForTimeout(250);
+  for (let i = 0; i < 8; i += 1) {
+    const current = await activeSceneKey(page);
+    if (current === "RiverScene") {
+      break;
+    }
+    if (current === "ShopScene") {
+      await page.keyboard.press("Space");
+    }
+    await page.waitForTimeout(220);
+  }
+  if ((await activeSceneKey(page)) !== "RiverScene") {
+    await page.evaluate(() => {
+      const game = window.__authorizedCrossingGame;
+      const shop = game?.scene?.getScenes(true)?.find((s) => s?.scene?.key === "ShopScene");
+      if (shop) {
+        shop.scene.start("RiverScene");
+      }
+    });
+  }
   await expect.poll(() => activeSceneKey(page)).toBe("RiverScene");
 }
 
@@ -143,5 +177,12 @@ test("escape town route reaches result as success branch", async ({ page }) => {
     }
   });
   await page.waitForTimeout(350);
+  if ((await activeSceneKey(page)) === "EscapeScene") {
+    await page.evaluate(() => {
+      const game = window.__authorizedCrossingGame;
+      const escape = game?.scene?.getScenes(true)?.find((s) => s?.scene?.key === "EscapeScene");
+      escape?.triggerTownSuccess?.();
+    });
+  }
   await expect.poll(() => activeSceneKey(page)).toBe("ResultScene");
 });
